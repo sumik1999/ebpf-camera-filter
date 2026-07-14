@@ -1,0 +1,27 @@
+# Buildroot build artifacts
+buildroot/output/
+buildroot/.config
+buildroot/.config.old
+buildroot/.config.legacy
+buildroot/.local
+buildroot/build
+buildroot/.defconfig
+buildroot/package/airport-ebpf/*.o
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+*.pyc
+__pycache__/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+build-output.tar.gz
+
+# Build output
+output-images/

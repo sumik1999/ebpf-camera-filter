@@ -1,10 +1,13 @@
-FROM ubuntu:22.04
+FROM debian:bullseye
 
 # Prevent interactive prompts during build
 ENV DEBIAN_FRONTEND=noninteractive
+# Allow building as root (required for Docker builds)
+ENV FORCE_UNSAFE_CONFIGURE=1
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install ALL build dependencies for buildroot (with --fix-missing for transient network errors)
+RUN apt-get update && \
+    apt-get install -y --fix-missing --no-install-recommends \
     build-essential \
     git \
     bc \
@@ -19,6 +22,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     python3 \
+    python3-dev \
+    file \
+    gperf \
+    libelf-dev \
+    texinfo \
+    cpio \
+    rsync \
+    xz-utils \
+    bzip2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

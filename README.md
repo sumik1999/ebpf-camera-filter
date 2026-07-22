@@ -41,6 +41,20 @@ docker run --rm -v "$(pwd)":/build -w /build camera-builder
 
 **Output:** `output-images/` contains `sdcard.img`, `rootfs.ext4`, kernel, and device trees.
 
+### Boot the Image in Raspberry Pi 4 QEMU
+
+Docker packages QEMU 10 and the required utilities, so host QEMU packages are
+not needed:
+
+```bash
+./qemu-build.sh
+./qemu-run.sh
+```
+
+Log in as `root` with an empty password. See [`qemu/README.md`](qemu/README.md)
+for persistent-disk handling, configuration, and emulation limitations. In
+particular, QEMU's Pi 4 model does not emulate GENET Ethernet or CSI cameras.
+
 ### Run the eBPF Test Harness
 
 ```bash
@@ -173,6 +187,10 @@ ebpf-camera-filter/
 ├── build-docker.sh             # macOS/Linux build script
 ├── build.ps1                   # Windows build script
 ├── build-native.sh             # macOS native fallback
+├── qemu-build.sh               # Build portable Pi 4 emulator container
+├── qemu-run.sh                 # Boot output-images in QEMU
+├── docker-compose.qemu.yml     # QEMU container and persistent SD volume
+├── qemu/                       # QEMU 10 image, entrypoint, and documentation
 ├── fix-docker-dns.sh           # Docker DNS fix (macOS)
 ├── Makefile                    # Test harness targets
 ├── config.env                  # Experiment config

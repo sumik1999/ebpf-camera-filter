@@ -72,8 +72,9 @@ ifeq ($(BR2_PACKAGE_LLVM_AMDGPU),y)
 LLVM_TARGETS_TO_BUILD += AMDGPU
 endif
 
-# Build BPF backend
-ifeq ($(BR2_PACKAGE_LLVM_BPF),y)
+# Build BPF backend. The airport-ebpf package only needs host-clang, so enable
+# the backend without pulling the very large target LLVM package into Camera OS.
+ifneq ($(filter y,$(BR2_PACKAGE_LLVM_BPF) $(BR2_PACKAGE_AIRPORT_EBPF)),)
 LLVM_TARGETS_TO_BUILD += BPF
 endif
 

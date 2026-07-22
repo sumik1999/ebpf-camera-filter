@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
+	echo "Usage: wifi-setup <country-code> <ssid> [passphrase]" >&2
+	exit 2
+fi
+
+country=$1
+ssid=$2
+passphrase=${3-}
+config=/etc/wpa_supplicant.conf
+umask 077
+
+{
+	printf 'ctrl_interface=/run/wpa_supplicant\nupdate_config=1\ncountry=%s\n\n' "$country"
+	if [ -n "$passphrase" ]; then
+		wpa_passphrase "$ssid" "$passphrase"
+	else
+		printf 'network={\n\tssid="%s"\n\tkey_mgmt=NONE\n}\n' "$ssid"
+	fi
+} > "$config"
+
+/etc/init.d/S40wifi restart
+printf 'Wi-Fi configured. Use "wpa_cli status" to inspect the connection.\n'

@@ -1,0 +1,33 @@
+#!/bin/sh
+
+DAEMON=/usr/sbin/wpa_supplicant
+PIDFILE=/run/wpa_supplicant-wlan0.pid
+CONFIG=/etc/wpa_supplicant.conf
+INTERFACE=wlan0
+
+configured() {
+	grep -Eq '^[[:space:]]*network=' "$CONFIG" 2>/dev/null
+}
+
+case "$1" in
+	start)
+		# Do not continuously log authentication failures on an unprovisioned image.
+		configured || exit 0
+		echo "Starting Wi-Fi on $INTERFACE..."
+		ip link set "$INTERFACE" up 2>/dev/null || true
+		start-stop-daemon -S -q -p "$PIDFILE" -x "$DAEMON" -- \
+			-B -P "$PIDFILE" -i "$INTERFACE" -D nl80211 -c "$CONFIG"
+		;;
+	stop)
+		echo "Stopping Wi-Fi..."
+		start-stop-daemon -K -q -p "$PIDFILE" -x "$DAEMON" -o
+		;;
+	restart)
+		"$0" stop
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+		;;
+esac

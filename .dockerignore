@@ -1,0 +1,3 @@
+# The build container contains tools only; source is bind-mounted at runtime.
+*
+!Dockerfile

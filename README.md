@@ -60,12 +60,13 @@ sudo make visual-demo
 
 ### SD Card Image (Buildroot)
 
-The Buildroot configuration produces a minimal embedded filesystem with:
+The Buildroot configuration produces a camera-focused embedded filesystem with:
 
-- Custom Linux kernel (eBPF/XDP enabled)
-- eBPF tools (`bpftool`, `libbpf`)
-- GStreamer camera pipeline
-- nftables firewall
+- Custom Linux kernel (camera, Wi-Fi, nftables, eBPF/XDP enabled)
+- eBPF tools (`bpftool`, `libbpf`) and both project XDP filter objects
+- libcamera/rpicam applications and GStreamer camera/RTSP pipeline
+- Raspberry Pi 4 Wi-Fi firmware, `wpa_supplicant`, and `dhcpcd`
+- nftables firewall and the lightweight `opkg` package manager
 
 ```
 output-images/
@@ -207,16 +208,29 @@ ebpf-camera-filter/
 
 ```bash
 cd buildroot
-make menuconfig    # Package selection
-make               # Rebuild
+make clean                       # Required when migrating from the old uClibc image
+make rpi4_camera_ebpf_defconfig  # Apply the canonical camera OS configuration
+make menuconfig                  # Optional interactive customization
+make                             # Build the image
 ```
+
+Provision Wi-Fi on the running device without baking credentials into the image:
+
+```bash
+wifi-setup US "your-ssid" "your-passphrase"
+wpa_cli status
+```
+
+`opkg` is intended for local, release-matched field updates. Buildroot does not
+provide a binary feed; configure your own feed before running `opkg update`.
 
 Key config files:
 
 | File | Purpose |
 |------|---------|
-| `buildroot/.defconfig` | Default package selection |
-| `buildroot/.config` | Generated kernel config |
+| `buildroot/configs/rpi4_camera_ebpf_defconfig` | Canonical OS package selection |
+| `buildroot/.config` | Generated Buildroot configuration |
+| `buildroot/board/rpi4-camera/linux-camera-ebpf.fragment` | Kernel camera/Wi-Fi/eBPF/nftables options |
 | `output-images/rpi-firmware/config.txt` | Raspberry Pi boot config |
 | `output-images/rpi-firmware/cmdline.txt` | Kernel command line |
 

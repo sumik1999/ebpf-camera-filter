@@ -1,0 +1,3 @@
+opkg is installed for local field updates. Buildroot does not provide a binary
+package repository. Add a signed, release-matched feed in /etc/opkg/*.conf
+before running `opkg update`; never mix packages from Debian/Raspberry Pi OS.

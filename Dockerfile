@@ -33,24 +33,9 @@ RUN apt-get update && \
     bzip2 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Source is mounted at /build by build-docker.sh. Keeping source and output out
+# of this image makes Docker caching effective and ensures artifacts are written
+# directly to the host checkout.
 WORKDIR /build
 
-# Copy the entire project
-COPY . .
-
-# Ensure buildroot is configured
-RUN cd buildroot && \
-    make olddefconfig 2>/dev/null || true
-
-# Build the image (parallel jobs)
-RUN cd buildroot && \
-    make -j$(nproc) && \
-    echo "Build completed successfully!" && \
-    ls -la output/images/
-
-# Create a tarball of the output for easy extraction
-RUN tar czf /build/build-output.tar.gz -C buildroot/output/images .
-
-# Final command shows what was built
-CMD ["ls", "-la", "/build/buildroot/output/images/"]
+CMD ["bash", "-c", "cd buildroot && make clean && make rpi4_camera_ebpf_defconfig && make -j$(nproc) && ls -la output/images/"]

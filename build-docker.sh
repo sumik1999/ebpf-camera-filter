@@ -92,15 +92,11 @@ docker build -t "$IMAGE_NAME" -f "$PROJECT_DIR/Dockerfile" "$PROJECT_DIR"
 echo "🚀 Running build in container..."
 docker run --rm -v "$PROJECT_DIR:/build" -w "/build" "$IMAGE_NAME"
 
-# Extract output
+# Copy the freshly built image set, including firmware subdirectories. Remove
+# old artifacts first so output-images cannot contain files from another config.
 echo "📦 Extracting build output..."
-docker run --rm -v "$PROJECT_DIR:/build" -w "/build" "$IMAGE_NAME" bash -c "
-    cp -r /build/buildroot/output/images/* /build/output-images/ 2>/dev/null || true
-    echo 'Output files copied to: $OUTPUT_DIR'
-"
-
-# Copy files using cp command directly
-cp -f "$PROJECT_DIR/buildroot/output/images/"* "$OUTPUT_DIR/" 2>/dev/null || true
+rm -rf "$OUTPUT_DIR"/*
+cp -a "$PROJECT_DIR/buildroot/output/images/." "$OUTPUT_DIR/"
 
 echo ""
 echo "✅ Build complete!"

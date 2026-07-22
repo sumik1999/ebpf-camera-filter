@@ -72,30 +72,13 @@ echo "   find: $(gfind --version 2>&1 | head -1)"
 echo "   coreutils install: $(ginstall --version 2>&1 | head -1)"
 echo ""
 
-# Clean up legacy configuration
-echo "🔧 Checking configuration..."
+# Always apply the canonical camera OS configuration. A clean rebuild avoids
+# mixing the former uClibc image with the glibc camera/eBPF toolchain.
+echo "🔧 Applying Raspberry Pi camera OS configuration..."
 cd "$BUILDROOT_DIR"
-perl -pi -e 's/^BR2_LEGACY=y$/# BR2_LEGACY is not set/' .config
-perl -pi -e 's/^BR2_KERNEL_HEADERS_5_4=y$/# BR2_KERNEL_HEADERS_5_4 is not set/' .config
-perl -pi -e 's/^BR2_KERNEL_HEADERS_4_12=y$/# BR2_KERNEL_HEADERS_4_12 is not set/' .config
-perl -pi -e 's/^BR2_KERNEL_HEADERS_3_2=y$/# BR2_KERNEL_HEADERS_3_2 is not set/' .config
-make olddefconfig > /dev/null 2>&1
+make clean
+make rpi4_camera_ebpf_defconfig
 cd "$PROJECT_DIR"
-
-# Check for existing output
-if [ -d "$BUILDROOT_DIR/output/images" ] && [ "$(ls -A "$BUILDROOT_DIR/output/images" 2>/dev/null)" ]; then
-    echo "📦 Found existing build output, copying..."
-    cp -f "$BUILDROOT_DIR/output/images/"* "$OUTPUT_DIR/" 2>/dev/null || true
-    echo "   Output files copied to: $OUTPUT_DIR"
-    echo ""
-    echo "✅ Done!"
-    echo ""
-    echo "Output files in: $OUTPUT_DIR"
-    ls -la "$OUTPUT_DIR"
-    echo ""
-    echo "📖 See SECURITY-CAMERA-BUILD-REPORT.md for deployment instructions"
-    exit 0
-fi
 
 # Build with buildroot
 CORES=$(sysctl -n hw.ncpu 2>/dev/null || nproc)

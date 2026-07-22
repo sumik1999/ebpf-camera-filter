@@ -1,0 +1,19 @@
+start_file=start4.elf
+fixup_file=fixup4.dat
+kernel=Image
+arm_64bit=1
+
+# Camera firmware/device-tree discovery and modern KMS graphics.
+camera_auto_detect=1
+display_auto_detect=1
+dtoverlay=vc4-kms-v3d
+max_framebuffers=2
+
+# Keep enough contiguous memory for camera buffers and codecs.
+gpu_mem=128
+
+# Serial recovery console.
+enable_uart=1
+dtoverlay=miniuart-bt
+
+disable_overscan=1

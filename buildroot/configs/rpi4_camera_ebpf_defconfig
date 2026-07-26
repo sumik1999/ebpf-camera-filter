@@ -134,10 +134,12 @@ BR2_PACKAGE_GST1_LIBAV=y
 BR2_PACKAGE_OPKG=y
 BR2_PACKAGE_OPKG_UTILS=y
 
-# Writable ext4 root filesystem with room for camera software and opkg packages.
+# Writable ext4 root filesystem. The installed target is currently about
+# 180 MiB; 512 MiB leaves roughly 300 MiB for logs, configuration, camera
+# state, and controlled opkg additions without padding every SD image to 1.5 GiB.
 BR2_TARGET_ROOTFS_EXT2=y
 BR2_TARGET_ROOTFS_EXT2_4=y
-BR2_TARGET_ROOTFS_EXT2_SIZE="1536M"
+BR2_TARGET_ROOTFS_EXT2_SIZE="512M"
 BR2_TARGET_ROOTFS_EXT2_LABEL="camera-rootfs"
 # BR2_TARGET_ROOTFS_TAR is not set
 BR2_PACKAGE_HOST_DOSFSTOOLS=y

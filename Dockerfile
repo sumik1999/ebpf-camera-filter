@@ -23,6 +23,8 @@ RUN apt-get update && \
     ca-certificates \
     python3 \
     python3-dev \
+    python3-matplotlib \
+    graphviz \
     file \
     gperf \
     libelf-dev \

@@ -78,6 +78,20 @@ output-images/
 └── rpi-firmware/       # Bootloader & overlays
 ```
 
+The writable ext4 root filesystem is provisioned at 512 MiB. The installed
+files currently consume about 180 MiB, leaving roughly 300 MiB for runtime
+state and controlled updates. Buildroot images are sparse files: compare
+logical and host-allocated sizes with `du -h --apparent-size` and `du -h`.
+
+To audit which packages consume the target filesystem, the builder includes
+the optional dependencies required by Buildroot's size report:
+
+```bash
+docker run --rm -v "$PWD:/build" -w /build airport-camera-builder \
+  bash -c 'cd buildroot && make graph-size'
+# Reports: buildroot/output/graphs/package-size-stats.csv and graph-size.pdf
+```
+
 **Build requirements:**
 
 | Requirement | Minimum | Recommended |

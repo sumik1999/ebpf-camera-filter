@@ -14,7 +14,11 @@ CONFIG_NET_CLS_ACT=y
 # nftables firewall
 CONFIG_NETFILTER=y
 CONFIG_NETFILTER_ADVANCED=y
-CONFIG_NF_TABLES=m
+# Keep the netlink endpoint and nftables core built in. If either is a module,
+# `nft` cannot initialize its NETLINK_NETFILTER socket until module autoloading
+# is available, which breaks early boot and recovery-shell administration.
+CONFIG_NETFILTER_NETLINK=y
+CONFIG_NF_TABLES=y
 CONFIG_NF_TABLES_INET=y
 CONFIG_NF_TABLES_NETDEV=y
 CONFIG_NFT_CT=m

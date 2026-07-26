@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# /run and /tmp are tmpfs mounts. Provide traditional paths required by
+# BusyBox networking, dhcpcd, OpenSSH and lighttpd on every boot.
+case "${1:-start}" in
+	start)
+		mkdir -p /run /var/log /var/tmp
+		chmod 1777 /var/tmp
+		if [ ! -e /var/run ]; then
+			ln -s /run /var/run
+		fi
+		# lighttpd drops privileges before opening its configured log files.
+		touch /var/log/lighttpd-access.log /var/log/lighttpd-error.log
+		chown www-data:www-data \
+			/var/log/lighttpd-access.log /var/log/lighttpd-error.log
+		chmod 0640 /var/log/lighttpd-access.log /var/log/lighttpd-error.log
+		;;
+esac

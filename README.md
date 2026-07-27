@@ -51,9 +51,11 @@ not needed:
 ./qemu-run.sh
 ```
 
-Log in as `root` with an empty password. See [`qemu/README.md`](qemu/README.md)
-for persistent-disk handling, configuration, and emulation limitations. In
-particular, QEMU's Pi 4 model does not emulate GENET Ethernet or CSI cameras.
+Log in as `root` with an empty password. The environment places four
+prerecorded test streams at `/dev/vid1` through `/dev/vid4`. See
+[`qemu/README.md`](qemu/README.md) for usage, persistent-disk handling, and
+emulation limitations. QEMU's Pi 4 model does not emulate GENET Ethernet or
+CSI cameras, so these streams are regular files rather than V4L2 devices.
 
 ### Run the eBPF Test Harness
 

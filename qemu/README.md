@@ -44,6 +44,25 @@ Run an unattended boot smoke test with:
 It succeeds only after the Pi 4 machine is detected, the ext4 root filesystem
 is mounted, and the Camera OS login prompt appears.
 
+## Prerecorded cameras
+
+On first initialization, the runner adds four deterministic, three-second Y4M
+recordings to the writable SD copy. An init script exposes them as regular
+video files at `/dev/vid1` through `/dev/vid4`; the source recordings remain at
+`/opt/qemu-camera/vid1.y4m` through `vid4.y4m`. Each file contains a distinct,
+moving color-bar pattern at 160x120, 30 fps and can be replayed indefinitely:
+
+```sh
+ffprobe /dev/vid1
+ffmpeg -stream_loop -1 -i /dev/vid1 -t 10 -f null -
+```
+
+These paths are prerecorded **files**, not V4L2 devices, so applications must
+use file input rather than `v4l2src`/`/dev/videoN`. This is the closest reliable
+camera substitute on QEMU's Pi 4 model because it has no CSI sensor or Unicam
+emulation. Run `./qemu-reset.sh` after changing the bundled recordings or when
+upgrading an older persistent SD volume.
+
 Equivalent Compose commands are:
 
 ```sh
@@ -67,6 +86,7 @@ The entrypoint accepts these environment variables:
 | `KERNEL_APPEND` | see entrypoint | Complete kernel command line override |
 | `QEMU_DISPLAY` | `none` | QEMU display backend |
 | `RESET_SD` | `0` | Recreate the writable SD copy |
+| `INJECT_CAMERA_VIDEOS` | `1` | Add `/dev/vid1` ... `/dev/vid4` recordings to a new SD copy |
 
 Extra QEMU arguments can be placed after `./qemu-run.sh`. For example, an
 experimental user-mode USB network adapter can be requested with:
@@ -99,7 +119,9 @@ root filesystem boots from `/dev/mmcblk1p2` in QEMU.
 QEMU 10 does **not** implement the Pi 4 PCIe root port or BCM2711 GENET Ethernet
 controller. It also does not emulate the Raspberry Pi CSI camera pipeline,
 physical camera sensors, Wi-Fi radio, GPU/V4L2 codecs, or a real NIC with native
-XDP offload. Consequently this environment is suitable for:
+XDP offload. The `/dev/vid1` ... `/dev/vid4` test inputs are therefore regular
+prerecorded files rather than emulated camera devices. Consequently this
+environment is suitable for:
 
 - Kernel and root-filesystem boot testing
 - Init scripts and package presence

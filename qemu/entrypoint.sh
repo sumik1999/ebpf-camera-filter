@@ -32,6 +32,9 @@ if [ ! -e "$SD_WORK" ]; then
     echo "Initializing writable SD card at $SD_WORK from $SD_SOURCE"
     cp --sparse=always "$SD_SOURCE" "$SD_WORK"
     truncate -s "$SD_SIZE" "$SD_WORK"
+    if [ "${INJECT_CAMERA_VIDEOS:-1}" = 1 ]; then
+        inject-camera-videos.sh "$SD_WORK"
+    fi
 fi
 
 if [ "${INIT_ONLY:-0}" = 1 ]; then

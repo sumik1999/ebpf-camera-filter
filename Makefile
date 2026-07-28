@@ -12,17 +12,17 @@ SHELL := /bin/bash
 # ── Environment check ────────────────────────────────────────────────────
 check:
 	@echo "Run inside Lima/OrbStack Linux guest, not on macOS host."
-	sudo bash scripts/check_env.sh
+	sudo bash scripts/validation/check-env.sh
 
 # ── Topology ──────────────────────────────────────────────────────────────
 setup:
-	sudo bash scripts/setup_ns_tree.sh
+	sudo bash scripts/network/setup.sh
 
 show:
-	bash scripts/show_topology.sh
+	bash scripts/network/show-topology.sh
 
 cleanup:
-	sudo bash scripts/cleanup_ns.sh
+	sudo bash scripts/network/cleanup.sh
 
 # ── Compile eBPF objects (optional: attach scripts compile automatically) ─
 compile: compile-xdp-frontend compile-cms compile-elastic compile-tc-cms compile-tc-elastic
@@ -34,8 +34,8 @@ compile-xdp-frontend:
 	clang -O2 -g -target bpf \
 	    -D__TARGET_ARCH_$(ARCH) \
 	    -I/usr/include/$(TRIPLE) -I/usr/include \
-	    -Iebpf \
-	    -c ebpf/xdp_frontend.bpf.c -o ebpf/xdp_frontend.bpf.o
+	    -Iebpf/include -Iebpf/tc \
+	    -c ebpf/xdp/frontend.bpf.c -o ebpf/xdp/frontend.bpf.o
 
 compile-cms:
 	@echo "Compiling XDP CMS filter …"
@@ -44,8 +44,8 @@ compile-cms:
 	clang -O2 -g -target bpf \
 	    -D__TARGET_ARCH_$(ARCH) \
 	    -I/usr/include/$(TRIPLE) -I/usr/include \
-	    -Iebpf \
-	    -c ebpf/xdp_cms_filter.bpf.c -o ebpf/xdp_cms_filter.bpf.o
+	    -Iebpf/include \
+	    -c ebpf/xdp/standalone/cms_filter.bpf.c -o ebpf/xdp/standalone/cms_filter.bpf.o
 
 compile-elastic:
 	@echo "Compiling XDP Elastic filter …"
@@ -54,8 +54,8 @@ compile-elastic:
 	clang -O2 -g -target bpf \
 	    -D__TARGET_ARCH_$(ARCH) \
 	    -I/usr/include/$(TRIPLE) -I/usr/include \
-	    -Iebpf \
-	    -c ebpf/xdp_elastic_filter.bpf.c -o ebpf/xdp_elastic_filter.bpf.o
+	    -Iebpf/include \
+	    -c ebpf/xdp/standalone/elastic_filter.bpf.c -o ebpf/xdp/standalone/elastic_filter.bpf.o
 
 compile-tc-cms:
 	@echo "Compiling TC CMS filter …"
@@ -64,8 +64,8 @@ compile-tc-cms:
 	clang -O2 -g -target bpf \
 	    -D__TARGET_ARCH_$(ARCH) \
 	    -I/usr/include/$(TRIPLE) -I/usr/include \
-	    -Iebpf \
-	    -c ebpf/tc_cms_filter.bpf.c -o ebpf/tc_cms_filter.bpf.o
+	    -Iebpf/include -Iebpf/tc \
+	    -c ebpf/tc/cms_filter.bpf.c -o ebpf/tc/cms_filter.bpf.o
 
 compile-tc-elastic:
 	@echo "Compiling TC Elastic filter …"
@@ -74,16 +74,16 @@ compile-tc-elastic:
 	clang -O2 -g -target bpf \
 	    -D__TARGET_ARCH_$(ARCH) \
 	    -I/usr/include/$(TRIPLE) -I/usr/include \
-	    -Iebpf \
-	    -c ebpf/tc_elastic_filter.bpf.c -o ebpf/tc_elastic_filter.bpf.o
+	    -Iebpf/include -Iebpf/tc \
+	    -c ebpf/tc/elastic_filter.bpf.c -o ebpf/tc/elastic_filter.bpf.o
 
 # ── Single experiment run ─────────────────────────────────────────────────
 run:
-	sudo bash scripts/run_experiment.sh
+	sudo bash scripts/experiments/run.sh
 
 # ── Stress matrix (all cases × all PPS levels) ──────────────────────────
 stress-matrix:
-	sudo bash scripts/run_stress_matrix.sh
+	sudo bash scripts/experiments/stress-matrix.sh
 
 # ── Summarise results ─────────────────────────────────────────────────────
 summarize:
@@ -91,7 +91,7 @@ summarize:
 
 # ── Visual demo ───────────────────────────────────────────────────────────
 visual-demo:
-	sudo bash scripts/run_visual_demo.sh
+	sudo bash scripts/experiments/visual-demo.sh
 
 visual-replay:
 	python3 eval/visual_attack_sim.py --results-dir eval/results
@@ -102,6 +102,7 @@ sketch-demo:
 
 # ── Syntax / compile validation ───────────────────────────────────────────
 validate:
-	bash -n scripts/*.sh filters/*.sh config.env
+	find scripts policy -type f -name '*.sh' -print0 | xargs -0 bash -n
+	bash -n config/defaults.env
 	python3 -m py_compile traffic/*.py eval/*.py
 	@echo "Syntax OK"

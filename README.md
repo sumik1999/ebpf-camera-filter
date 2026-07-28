@@ -29,13 +29,13 @@ Docker-based build works on **Linux, macOS, and Windows**. No compilers required
 
 ```bash
 # macOS / Linux
-chmod +x build-docker.sh && ./build-docker.sh
+chmod +x scripts/build/build-docker.sh && ./scripts/build/build-docker.sh
 
 # Windows (PowerShell)
-.\build.ps1
+.\scripts\build\build.ps1
 
 # Manual
-docker build -t camera-builder -f Dockerfile .
+docker build -t camera-builder -f containers/Dockerfile .
 docker run --rm -v "$(pwd)":/build -w /build camera-builder
 ```
 
@@ -47,14 +47,14 @@ Docker packages QEMU 10 and the required utilities, so host QEMU packages are
 not needed:
 
 ```bash
-./qemu-build.sh
-./qemu-run.sh
+./scripts/qemu/build.sh
+./scripts/qemu/run.sh
 
 # Unattended OS, eBPF, video, and four-camera loopback validation
-./qemu-camera-network-test.sh
+./scripts/qemu/camera-network-test.sh
 
 # WPA2 AP plus four isolated software Wi-Fi camera stations
-./qemu-wifi-camera-test.sh
+./scripts/qemu/wifi-camera-test.sh
 ```
 
 Log in as `root` with an empty password. The environment places four
@@ -192,14 +192,14 @@ The attachment script pins XDP maps under `/sys/fs/bpf/airport-defense`. Manage
 exact addresses, CIDR prefixes, and the optional Bloom filter with:
 
 ```bash
-sudo python3 scripts/blocklistctl.py exact add 198.51.100.10
-sudo python3 scripts/blocklistctl.py prefix add 203.0.113.0/24
-sudo python3 scripts/blocklistctl.py bloom add 192.0.2.20
-sudo python3 scripts/blocklistctl.py status
+sudo python3 scripts/deployment/blocklistctl.py exact add 198.51.100.10
+sudo python3 scripts/deployment/blocklistctl.py prefix add 203.0.113.0/24
+sudo python3 scripts/deployment/blocklistctl.py bloom add 192.0.2.20
+sudo python3 scripts/deployment/blocklistctl.py status
 
-sudo python3 scripts/blocklistctl.py exact delete 198.51.100.10
-sudo python3 scripts/blocklistctl.py prefix delete 203.0.113.0/24
-sudo python3 scripts/blocklistctl.py bloom clear
+sudo python3 scripts/deployment/blocklistctl.py exact delete 198.51.100.10
+sudo python3 scripts/deployment/blocklistctl.py prefix delete 203.0.113.0/24
+sudo python3 scripts/deployment/blocklistctl.py bloom clear
 ```
 
 Camera OS installs the same utility as `airport-blocklist`. Exact and LPM maps
@@ -213,57 +213,33 @@ cannot be deleted, so rebuild it with `bloom clear` when entries expire.
 
 ```
 ebpf-camera-filter/
-├── Dockerfile                  # Buildroot build image
-├── build-docker.sh             # macOS/Linux build script
-├── build.ps1                   # Windows build script
-├── build-native.sh             # macOS native fallback
-├── qemu-build.sh               # Build portable Pi 4 emulator container
-├── qemu-run.sh                 # Boot output-images in QEMU
-├── qemu-camera-network-test.sh # Validate four concurrent guest camera streams
-├── qemu-wifi-camera-test.sh    # Validate WPA2 and four software Wi-Fi stations
-├── docker-compose.qemu.yml     # QEMU container and persistent SD volume
-├── qemu/                       # QEMU 10 image, entrypoint, and documentation
-├── fix-docker-dns.sh           # Docker DNS fix (macOS)
-├── Makefile                    # Test harness targets
-├── config.env                  # Experiment config
-├── output-images/              # Build artifacts (SD card images)
-├── buildroot/                  # Buildroot configuration
-│   ├── output/                 # Build artifacts (gitignored)
-│   └── package/                # Custom packages
-├── ebpf/                       # eBPF source code
-│   ├── common.h                # Shared XDP helpers
-│   ├── tc_common.h             # TC-context packet parser
-│   ├── maps.h                  # Shared maps/structures
-│   ├── xdp_frontend.bpf.c      # First-stage XDP validation
-│   ├── tc_cms_filter.bpf.c     # TC Count-Min Sketch stage
-│   └── tc_elastic_filter.bpf.c # TC ElasticSketch-inspired stage
-├── scripts/                    # Test harness scripts
-│   ├── check_env.sh            # Pre-flight checks
-│   ├── setup_ns_tree.sh        # Network namespace topology
-│   ├── attach_xdp.sh           # XDP attach
-│   ├── attach_tc_fallback.sh   # TC fallback
-│   ├── detach_xdp.sh           # Detach filters
-│   ├── cleanup_ns.sh           # Cleanup topology
-│   ├── run_experiment.sh       # Single experiment
-│   ├── run_stress_matrix.sh    # Full matrix
-│   └── run_visual_demo.sh      # Visualization
-├── filters/                    # nftables rules
-│   ├── nftables_guard.sh
-│   └── clear_nftables.sh
-├── traffic/                    # Traffic generators
-│   ├── camera_service.py
-│   ├── syn_flood.py
-│   ├── telemetry_client.py
-│   ├── telemetry_server.py
-│   └── udp_flood.py
-├── eval/                       # Metrics & visualization
-│   ├── collect_metrics.py
-│   ├── summarize_results.py
-│   └── visual_attack_sim.py
+├── README.md
+├── Makefile
+├── config/                     # Public defaults and local override example
+├── containers/                 # Build and QEMU Compose definitions
 ├── docs/
-├── setup-guide.md
-├── build-readme.md
-└── security-camera-build-report.md
+│   ├── guides/                 # Build and setup guides
+│   ├── reports/                # Engineering reports in Markdown/PDF
+│   └── references/             # Project plans and research PDFs
+├── ebpf/
+│   ├── include/                # Shared maps and packet parser
+│   ├── xdp/                    # XDP front end and standalone prototypes
+│   └── tc/                     # TC CMS and Elastic classifiers
+├── policy/nftables/            # Apply and clear nftables policy
+├── scripts/
+│   ├── build/                  # Native, Docker, and Windows builds
+│   ├── deployment/             # XDP/TC attach and blocklist control
+│   ├── experiments/            # Experiment and stress runners
+│   ├── network/                # Namespace topology lifecycle
+│   ├── qemu/                   # QEMU build, boot, and regression tests
+│   └── validation/             # Environment checks
+├── qemu/
+│   ├── assets/                 # Four prerecorded streams
+│   └── guest/                  # Guest init and test scripts
+├── traffic/                    # Traffic generators
+├── eval/                       # Metrics and visualization
+├── buildroot/                  # Vendored Buildroot and project integration
+└── output-images/              # Generated images (ignored)
 ```
 
 ---
@@ -302,7 +278,8 @@ Key config files:
 
 ### Test Harness
 
-Edit `config.env` before running:
+Safe defaults are tracked in `config/defaults.env`. For local overrides, copy
+`config/local.env.example` to the ignored `config/local.env` and edit that file:
 
 ```bash
 NUM_CAMERAS=4           # Simulated cameras
@@ -318,10 +295,10 @@ HEAVY_FLOW_THRESHOLD_PPS=400  # Heavy hitter threshold
 
 | Problem | Solution |
 |---------|----------|
-| Docker DNS fails | Run `./fix-docker-dns.sh` and restart Docker Desktop |
+| Docker DNS fails | Run `./scripts/build/fix-docker-dns.sh` and restart Docker Desktop |
 | Out of disk | Free 60+ GB; Docker needs space for build cache |
 | Slow build | Increase Docker resources (CPU cores, RAM) |
-| Package download fails | `./fix-docker-dns.sh` fixes Ubuntu mirror access |
+| Package download fails | `./scripts/build/fix-docker-dns.sh` fixes mirror access |
 | Permission denied | Ensure you're in the project root |
 
 ---
@@ -330,10 +307,11 @@ HEAVY_FLOW_THRESHOLD_PPS=400  # Heavy hitter threshold
 
 | File | Description |
 |------|-------------|
-| [setup-guide.md](setup-guide.md) | Flashing & deployment guide |
-| [build-readme.md](build-readme.md) | Build troubleshooting details |
-| [security-camera-build-report.md](security-camera-build-report.md) | Technical report |
-| [QEMU-RASPBERRY-TESTING-BRANCH-REPORT.md](QEMU-RASPBERRY-TESTING-BRANCH-REPORT.md) | QEMU, Wi-Fi, and eBPF branch status |
+| [SETUP-GUIDE.md](docs/guides/SETUP-GUIDE.md) | Flashing and deployment guide |
+| [BUILD-README.md](docs/guides/BUILD-README.md) | Build troubleshooting details |
+| [docs/reports/SECURITY-CAMERA-BUILD-REPORT.md](docs/reports/SECURITY-CAMERA-BUILD-REPORT.md) | Technical report |
+| [QEMU branch report](docs/reports/QEMU-RASPBERRY-TESTING-BRANCH-REPORT.md) | QEMU, Wi-Fi, and eBPF status |
+| [DDoS project plan](docs/references/DDoS_Mitigation_Project_Plan_FINAL.pdf) | Final mitigation architecture plan |
 
 ---
 

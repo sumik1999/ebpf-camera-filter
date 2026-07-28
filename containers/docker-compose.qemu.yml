@@ -1,0 +1,15 @@
+services:
+  rpi4:
+    image: camera-os-qemu-rpi4:latest
+    build:
+      context: ../qemu
+    stdin_open: true
+    tty: true
+    environment:
+      QEMU_DISPLAY: none
+    volumes:
+      - ../output-images:/images:ro
+      - qemu-rpi4-state:/state
+
+volumes:
+  qemu-rpi4-state:

@@ -19,8 +19,8 @@ software emulation, so it is slower than a physical Pi.
 From the repository root:
 
 ```sh
-./qemu-build.sh
-./qemu-run.sh
+./scripts/qemu/build.sh
+./scripts/qemu/run.sh
 ```
 
 Log in as `root` with an empty password. Stop QEMU with `Ctrl+A`, then `X`.
@@ -30,7 +30,7 @@ Changes are written to the Docker volume `qemu-rpi4-state` while the original
 Reset the emulated SD card to the latest source image with:
 
 ```sh
-./qemu-reset.sh
+./scripts/qemu/reset.sh
 ```
 
 After rebuilding Camera OS, run the reset command before booting it in QEMU.
@@ -38,7 +38,7 @@ After rebuilding Camera OS, run the reset command before booting it in QEMU.
 Run an unattended boot smoke test with:
 
 ```sh
-./qemu-smoke-test.sh
+./scripts/qemu/smoke-test.sh
 ```
 
 It succeeds only after the Pi 4 machine is detected, the ext4 root filesystem
@@ -60,7 +60,7 @@ ffmpeg -stream_loop -1 -i /dev/vid1 -t 10 -f null -
 These paths are prerecorded **files**, not V4L2 devices, so applications must
 use file input rather than `v4l2src`/`/dev/videoN`. This is the closest reliable
 camera substitute on QEMU's Pi 4 model because it has no CSI sensor or Unicam
-emulation. Run `./qemu-reset.sh` after changing the bundled recordings or when
+emulation. Run `./scripts/qemu/reset.sh` after changing the bundled recordings or when
 upgrading an older persistent SD volume.
 
 ### Four-camera loopback test
@@ -68,7 +68,7 @@ upgrading an older persistent SD volume.
 Run the complete unattended validation against the current SD image:
 
 ```sh
-./qemu-camera-network-test.sh
+./scripts/qemu/camera-network-test.sh
 ```
 
 Inside the guest, the test verifies the Pi 4 machine identity, required camera
@@ -92,7 +92,7 @@ The rebuilt Camera OS includes `hostapd` and the kernel's `mac80211_hwsim`
 software radio driver. Run:
 
 ```sh
-./qemu-wifi-camera-test.sh
+./scripts/qemu/wifi-camera-test.sh
 ```
 
 The test creates one WPA2 access point (`QEMU-Camera-Lab`) and four station
@@ -111,8 +111,8 @@ does not create virtual WLAN interfaces on deployed hardware.
 Equivalent Compose commands are:
 
 ```sh
-docker compose -f docker-compose.qemu.yml build
-docker compose -f docker-compose.qemu.yml run --rm rpi4
+docker compose -f containers/docker-compose.qemu.yml build
+docker compose -f containers/docker-compose.qemu.yml run --rm rpi4
 ```
 
 ## Configuration
@@ -133,11 +133,11 @@ The entrypoint accepts these environment variables:
 | `RESET_SD` | `0` | Recreate the writable SD copy |
 | `INJECT_CAMERA_VIDEOS` | `1` | Add `/dev/vid1` ... `/dev/vid4` recordings to a new SD copy |
 
-Extra QEMU arguments can be placed after `./qemu-run.sh`. For example, an
+Extra QEMU arguments can be placed after `./scripts/qemu/run.sh`. For example, an
 experimental user-mode USB network adapter can be requested with:
 
 ```sh
-./qemu-run.sh \
+./scripts/qemu/run.sh \
   -netdev user,id=net0,hostfwd=tcp::2222-:22 \
   -device usb-net,netdev=net0
 ```

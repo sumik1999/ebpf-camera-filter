@@ -13,10 +13,12 @@ RUN apt-get update \
         util-linux \
     && rm -rf /var/lib/apt/lists/*
 
-COPY entrypoint.sh inject-camera-videos.sh /usr/local/bin/
-COPY camera-init.sh /usr/local/lib/qemu-camera-init
-COPY guest-camera-network-test.sh camera-network-test-init.sh \
-    guest-wifi-camera-test.sh wifi-camera-test-init.sh /usr/local/lib/
+COPY entrypoint.sh guest/inject-camera-videos.sh /usr/local/bin/
+COPY guest/init/camera.sh /usr/local/lib/qemu-camera-init
+COPY guest/tests/camera-network.sh /usr/local/lib/guest-camera-network-test.sh
+COPY guest/init/camera-network-test.sh /usr/local/lib/camera-network-test-init.sh
+COPY guest/tests/wifi-camera.sh /usr/local/lib/guest-wifi-camera-test.sh
+COPY guest/init/wifi-camera-test.sh /usr/local/lib/wifi-camera-test-init.sh
 COPY assets/ /usr/share/qemu-camera/
 RUN chmod 0755 \
         /usr/local/bin/entrypoint.sh \

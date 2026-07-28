@@ -7,7 +7,8 @@
 **Report date:** 2026-07-28
 
 **Target:** Raspberry Pi 4 Camera OS, ARM64, Buildroot
-**Status:** Functional development branch with committed QEMU foundations and uncommitted security enhancements
+
+**Status:** Functional development branch with committed QEMU, Wi-Fi, and security enhancements
 
 ## 1. Executive summary
 
@@ -38,26 +39,20 @@ The branch has passed QEMU boot, four-camera loopback, WPA2 association, XDP att
 
 ### Committed branch work
 
-The branch contains two commits beyond `raspberry-updated`:
+The branch contains four commits beyond `raspberry-updated`:
 
 ```text
+be67ee1d docs: add final DDoS mitigation project plan
+17421ffc feat: add multi-layer QEMU camera defense pipeline
 e38b67b1 test: add prerecorded QEMU camera streams
 166fedd0 test: add portable Raspberry Pi 4 QEMU environment
 ```
 
-These commits provide the original Dockerized QEMU runner, writable SD handling, boot smoke test, and prerecorded camera assets.
+These commits provide the Dockerized QEMU runner, writable SD handling, boot and camera tests, prerecorded camera assets, software-defined WPA2 Wi-Fi environment, XDP/TC security pipeline, blocklists, branch report, and final project-plan PDF.
 
-### Uncommitted work
+### Repository state
 
-The Wi-Fi environment and security implementations described below are currently in the working tree and are **not yet protected by a commit**.
-
-The project-plan PDF remains untracked:
-
-```text
-DDoS_Mitigation_Project_Plan_FINAL.pdf
-```
-
-Build artifacts under `output-images/` and `buildroot/output/` are ignored by Git and are therefore local rather than branch-versioned.
+The implementation and project-plan PDF are committed, and the branch tracks `origin/qemu-raspberry-testing`. Build artifacts under `output-images/` and `buildroot/output/` remain ignored by Git and are local rather than branch-versioned.
 
 ## 3. QEMU environment
 
@@ -453,4 +448,4 @@ Recommended next implementation order:
 
 ## 11. Recommended repository action
 
-Before continuing, create a checkpoint commit containing the QEMU/Wi-Fi environment and implementations 1–5. This prevents the substantial uncommitted work from being lost and gives the adaptive SYN detector a clean development baseline.
+The QEMU/Wi-Fi environment, implementations 1–5, report, and project-plan PDF now have checkpoint commits on `qemu-raspberry-testing`. Continue the adaptive SYN detector and subsequent roadmap items as focused incremental commits, rerunning both four-camera QEMU regression tests after every security change.

@@ -63,6 +63,51 @@ camera substitute on QEMU's Pi 4 model because it has no CSI sensor or Unicam
 emulation. Run `./qemu-reset.sh` after changing the bundled recordings or when
 upgrading an older persistent SD volume.
 
+### Four-camera loopback test
+
+Run the complete unattended validation against the current SD image:
+
+```sh
+./qemu-camera-network-test.sh
+```
+
+Inside the guest, the test verifies the Pi 4 machine identity, required camera
+utilities, XDP front-end decisions, and kernel loading of all XDP and TC classifier objects. It then replays all four
+recordings concurrently through FFmpeg, sends MPEG-TS over four distinct guest
+loopback endpoints, and decodes 20 frames from each stream:
+
+| Camera | Input | UDP endpoint |
+|---|---|---|
+| 1 | `/dev/vid1` | `127.0.0.11:12001` |
+| 2 | `/dev/vid2` | `127.0.0.12:12002` |
+| 3 | `/dev/vid3` | `127.0.0.13:12003` |
+| 4 | `/dev/vid4` | `127.0.0.14:12004` |
+
+The test uses a temporary writable SD image, shuts down automatically, and does
+not change the persistent Compose volume or `output-images/sdcard.img`.
+
+### Four-camera Wi-Fi test
+
+The rebuilt Camera OS includes `hostapd` and the kernel's `mac80211_hwsim`
+software radio driver. Run:
+
+```sh
+./qemu-wifi-camera-test.sh
+```
+
+The test creates one WPA2 access point (`QEMU-Camera-Lab`) and four station
+radios in isolated network namespaces. Cameras associate at `10.30.0.11`
+through `10.30.0.14` and ping the AP at `10.30.0.1`. It verifies exact-IP,
+CIDR-prefix, and Bloom-filter XDP blocking and recovery. Both genuine SCHED_CLS
+filters are then attached to the AP ingress hook before the cameras concurrently
+transmit 20 encoded video frames each to UDP ports 13001 through 13004.
+
+This validates the guest's IEEE 802.11, WPA2, IP, FFmpeg, and concurrent camera
+paths. It is software-defined Wi-Fi: QEMU does not emulate BCM4345 hardware,
+RF propagation, interference, signal strength, roaming, or real throughput.
+The physical Pi boot command line disables hwsim radios, so the test driver
+does not create virtual WLAN interfaces on deployed hardware.
+
 Equivalent Compose commands are:
 
 ```sh

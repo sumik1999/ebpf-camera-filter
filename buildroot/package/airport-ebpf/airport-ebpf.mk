@@ -30,18 +30,35 @@ AIRPORT_EBPF_HOST_CLANG = $(HOST_DIR)/bin/clang
 
 define AIRPORT_EBPF_BUILD_CMDS
 	$(AIRPORT_EBPF_HOST_CLANG) $(AIRPORT_EBPF_CFLAGS) -c \
+		$(@D)/xdp_frontend.bpf.c \
+		-o $(@D)/xdp_frontend.bpf.o
+	$(AIRPORT_EBPF_HOST_CLANG) $(AIRPORT_EBPF_CFLAGS) -c \
 		$(@D)/xdp_cms_filter.bpf.c \
 		-o $(@D)/xdp_cms_filter.bpf.o
 	$(AIRPORT_EBPF_HOST_CLANG) $(AIRPORT_EBPF_CFLAGS) -c \
 		$(@D)/xdp_elastic_filter.bpf.c \
 		-o $(@D)/xdp_elastic_filter.bpf.o
+	$(AIRPORT_EBPF_HOST_CLANG) $(AIRPORT_EBPF_CFLAGS) -c \
+		$(@D)/tc_cms_filter.bpf.c \
+		-o $(@D)/tc_cms_filter.bpf.o
+	$(AIRPORT_EBPF_HOST_CLANG) $(AIRPORT_EBPF_CFLAGS) -c \
+		$(@D)/tc_elastic_filter.bpf.c \
+		-o $(@D)/tc_elastic_filter.bpf.o
 endef
 
 define AIRPORT_EBPF_INSTALL_TARGET_CMDS
+	$(INSTALL) -D -m 0644 $(@D)/xdp_frontend.bpf.o \
+		$(TARGET_DIR)/usr/local/sbin/xdp_frontend.bpf.o
 	$(INSTALL) -D -m 0644 $(@D)/xdp_cms_filter.bpf.o \
 		$(TARGET_DIR)/usr/local/sbin/xdp_cms_filter.bpf.o
 	$(INSTALL) -D -m 0644 $(@D)/xdp_elastic_filter.bpf.o \
 		$(TARGET_DIR)/usr/local/sbin/xdp_elastic_filter.bpf.o
+	$(INSTALL) -D -m 0644 $(@D)/tc_cms_filter.bpf.o \
+		$(TARGET_DIR)/usr/local/sbin/tc_cms_filter.bpf.o
+	$(INSTALL) -D -m 0644 $(@D)/tc_elastic_filter.bpf.o \
+		$(TARGET_DIR)/usr/local/sbin/tc_elastic_filter.bpf.o
+	$(INSTALL) -D -m 0755 $(TOPDIR)/../scripts/blocklistctl.py \
+		$(TARGET_DIR)/usr/sbin/airport-blocklist
 endef
 
 $(eval $(generic-package))

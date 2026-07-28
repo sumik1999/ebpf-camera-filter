@@ -7,12 +7,14 @@
 #define HEAVY_TABLE_SIZE 256
 #define DEFAULT_THRESHOLD_PPS 400
 
+/* IPv4 five-tuple. Explicit padding keeps map keys deterministic. */
 struct flow_key {
     unsigned int src;
     unsigned int dst;
+    unsigned short sport;
     unsigned short dport;
     unsigned char proto;
-    unsigned char pad;
+    unsigned char pad[3];
 };
 
 struct bucket {

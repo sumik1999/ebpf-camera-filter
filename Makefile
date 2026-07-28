@@ -2,10 +2,10 @@ SHELL := /bin/bash
 
 # Airport eBPF Defense – Mac / Lima Makefile
 # All targets that need root are prefixed with sudo.
-# The eBPF programs now use XDP (primary) with TC fallback.
+# Defended cases use an XDP validation front end followed by TC analytics.
 
 .PHONY: check setup show cleanup \
-        compile compile-cms compile-elastic \
+        compile compile-xdp-frontend compile-cms compile-elastic compile-tc-cms compile-tc-elastic \
         run run-all stress-matrix summarize \
         visual-demo visual-replay sketch-demo validate
 
@@ -25,7 +25,17 @@ cleanup:
 	sudo bash scripts/cleanup_ns.sh
 
 # ── Compile eBPF objects (optional: attach scripts compile automatically) ─
-compile: compile-cms compile-elastic
+compile: compile-xdp-frontend compile-cms compile-elastic compile-tc-cms compile-tc-elastic
+
+compile-xdp-frontend:
+	@echo "Compiling XDP pipeline front end …"
+	$(eval ARCH := $(shell uname -m | sed 's/x86_64/x86/;s/aarch64/arm64/'))
+	$(eval TRIPLE := $(shell uname -m | sed 's/x86_64/x86_64-linux-gnu/;s/aarch64/aarch64-linux-gnu/'))
+	clang -O2 -g -target bpf \
+	    -D__TARGET_ARCH_$(ARCH) \
+	    -I/usr/include/$(TRIPLE) -I/usr/include \
+	    -Iebpf \
+	    -c ebpf/xdp_frontend.bpf.c -o ebpf/xdp_frontend.bpf.o
 
 compile-cms:
 	@echo "Compiling XDP CMS filter …"
@@ -46,6 +56,26 @@ compile-elastic:
 	    -I/usr/include/$(TRIPLE) -I/usr/include \
 	    -Iebpf \
 	    -c ebpf/xdp_elastic_filter.bpf.c -o ebpf/xdp_elastic_filter.bpf.o
+
+compile-tc-cms:
+	@echo "Compiling TC CMS filter …"
+	$(eval ARCH := $(shell uname -m | sed 's/x86_64/x86/;s/aarch64/arm64/'))
+	$(eval TRIPLE := $(shell uname -m | sed 's/x86_64/x86_64-linux-gnu/;s/aarch64/aarch64-linux-gnu/'))
+	clang -O2 -g -target bpf \
+	    -D__TARGET_ARCH_$(ARCH) \
+	    -I/usr/include/$(TRIPLE) -I/usr/include \
+	    -Iebpf \
+	    -c ebpf/tc_cms_filter.bpf.c -o ebpf/tc_cms_filter.bpf.o
+
+compile-tc-elastic:
+	@echo "Compiling TC Elastic filter …"
+	$(eval ARCH := $(shell uname -m | sed 's/x86_64/x86/;s/aarch64/arm64/'))
+	$(eval TRIPLE := $(shell uname -m | sed 's/x86_64/x86_64-linux-gnu/;s/aarch64/aarch64-linux-gnu/'))
+	clang -O2 -g -target bpf \
+	    -D__TARGET_ARCH_$(ARCH) \
+	    -I/usr/include/$(TRIPLE) -I/usr/include \
+	    -Iebpf \
+	    -c ebpf/tc_elastic_filter.bpf.c -o ebpf/tc_elastic_filter.bpf.o
 
 # ── Single experiment run ─────────────────────────────────────────────────
 run:

@@ -13,10 +13,9 @@
 #   1. Auto-detects the host CPU architecture (x86_64 / aarch64) and sets
 #      the correct clang BPF target flag.
 #   2. Compiles the selected eBPF C source with clang -target bpf.
-#   3. Attaches the object to the guard gateway interface using
-#      "ip link set … xdp obj … sec xdp" in the chosen mode.
-#   4. Falls back to TC ingress (attach_tc_fallback.sh) if XDP attachment
-#      fails (e.g. on veth pairs without SKB mode support).
+#   3. Attaches the validation front end to the guard gateway interface.
+#   4. Always attaches the selected CMS/Elastic analytics stage at TC ingress.
+#      If XDP is unavailable, TC remains active as an explicitly reported fallback.
 #
 # Usage
 #   sudo CASE=xdp_elastic_ebpf bash scripts/attach_xdp.sh
@@ -40,17 +39,19 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 1
 fi
 
-# ── Map CASE aliases to source files ─────────────────────────────────────
+# ── Select the TC analytics stage ────────────────────────────────────────
+# Every defended case uses the same cheap XDP validation front end. CMS or
+# ElasticSketch-inspired accounting then runs as a genuine TC classifier.
+SRC="${ROOT_DIR}/ebpf/xdp_frontend.bpf.c"
+OBJ="${ROOT_DIR}/ebpf/xdp_frontend.bpf.o"
 case "${CASE}" in
     xdp_cms_ebpf|cms_ebpf)
-        SRC="${ROOT_DIR}/ebpf/xdp_cms_filter.bpf.c"
-        OBJ="${ROOT_DIR}/ebpf/xdp_cms_filter.bpf.o"
         CASE_CANON="xdp_cms_ebpf"
+        TC_VARIANT="cms"
         ;;
     xdp_elastic_ebpf|elastic_ebpf)
-        SRC="${ROOT_DIR}/ebpf/xdp_elastic_filter.bpf.c"
-        OBJ="${ROOT_DIR}/ebpf/xdp_elastic_filter.bpf.o"
         CASE_CANON="xdp_elastic_ebpf"
+        TC_VARIANT="elastic"
         ;;
     *)
         echo "Unsupported XDP CASE: ${CASE}" | tee "${STATUS_FILE}"
@@ -60,7 +61,8 @@ case "${CASE}" in
 esac
 
 echo "case=${CASE_CANON}"     >"${STATUS_FILE}"
-echo "source=${SRC}"          >>"${STATUS_FILE}"
+echo "pipeline=xdp_frontend+tc_${TC_VARIANT}" >>"${STATUS_FILE}"
+echo "xdp_source=${SRC}"      >>"${STATUS_FILE}"
 echo "interface=${NS_GUARD}/${GUARD_TERMINAL_IF}" >>"${STATUS_FILE}"
 
 # ── Auto-detect CPU architecture for clang target flag ──────────────────
@@ -111,32 +113,91 @@ if ! clang -O2 -g \
         -c "${SRC}" -o "${OBJ}" >>"${STATUS_FILE}" 2>&1; then
     echo "mode=xdp_compile_failed" >>"${STATUS_FILE}"
     echo "ERROR: XDP eBPF compile failed. See ${STATUS_FILE} for details."
-    echo "       Falling back to TC ingress …"
-    CASE="${CASE_CANON}" bash "${ROOT_DIR}/scripts/attach_tc_fallback.sh"
+    echo "       Continuing with TC-only fallback …"
+    TC_ROLE=fallback CASE="${CASE}" bash "${ROOT_DIR}/scripts/attach_tc_fallback.sh"
     exit 0
 fi
 echo "Compile OK: ${OBJ}" | tee -a "${STATUS_FILE}"
 
 # ── Attach XDP program ───────────────────────────────────────────────────
-XDP_MODE_FLAG=""
 case "${XDP_MODE:-skb}" in
-    native)  XDP_MODE_FLAG=""        ;;   # driver-level, no flag needed
-    skb)     XDP_MODE_FLAG="generic" ;;   # SKB/generic for veth / virtio
-    offload) XDP_MODE_FLAG="offload" ;;   # NIC offload (rare)
+    native)  XDP_ATTACH_TOKEN="xdpdrv"     ;;
+    skb)     XDP_ATTACH_TOKEN="xdpgeneric" ;;
+    offload) XDP_ATTACH_TOKEN="xdpoffload" ;;
+    *)
+        echo "Unsupported XDP_MODE=${XDP_MODE}; use native, skb, or offload" | tee -a "${STATUS_FILE}"
+        exit 1
+        ;;
 esac
 
-# Detach any existing XDP program first
+# Detach any existing XDP program first.
 ip netns exec "${NS_GUARD}" \
     ip link set dev "${GUARD_TERMINAL_IF}" xdp off 2>/dev/null || true
 
-ATTACH_CMD="ip link set dev ${GUARD_TERMINAL_IF} xdp${XDP_MODE_FLAG:+ ${XDP_MODE_FLAG}} obj ${OBJ} sec xdp"
-echo "Attaching: ${ATTACH_CMD}" | tee -a "${STATUS_FILE}"
+# bpftool pins the blocklist maps so updates survive program reloads and can be
+# managed by scripts/blocklistctl.py. If bpftool is unavailable, retain packet
+# validation but clearly report that dynamic blocklist management is disabled.
+BPF_PIN_DIR="${AIRPORT_BPF_PIN_DIR:-/sys/fs/bpf/airport-defense}"
+PROGRAM_PIN="${BPF_PIN_DIR}/xdp_frontend"
+MAP_NAMES=(exact_deny prefix_deny bloom_bits defense_cfg)
+XDP_ATTACHED=0
 
-if ip netns exec "${NS_GUARD}" ${ATTACH_CMD} >>"${STATUS_FILE}" 2>&1; then
-    echo "mode=xdp_attached_${XDP_MODE:-skb}" >>"${STATUS_FILE}"
-    echo "SUCCESS: XDP ${CASE_CANON} attached on ${NS_GUARD}/${GUARD_TERMINAL_IF} (mode=${XDP_MODE:-skb})"
+if command -v bpftool >/dev/null 2>&1; then
+    mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf
+    mkdir -p "${BPF_PIN_DIR}"
+    chmod 0700 "${BPF_PIN_DIR}"
+    rm -f "${PROGRAM_PIN}"
+
+    MAPS_COMPLETE=1
+    for map_name in "${MAP_NAMES[@]}"; do
+        [[ -e "${BPF_PIN_DIR}/${map_name}" ]] || MAPS_COMPLETE=0
+    done
+
+    LOAD_CMD=(bpftool prog load "${OBJ}" "${PROGRAM_PIN}" type xdp)
+    if [[ "${MAPS_COMPLETE}" == 1 ]]; then
+        for map_name in "${MAP_NAMES[@]}"; do
+            LOAD_CMD+=(map name "${map_name}" pinned "${BPF_PIN_DIR}/${map_name}")
+        done
+    else
+        for map_name in "${MAP_NAMES[@]}"; do
+            rm -f "${BPF_PIN_DIR}/${map_name}"
+        done
+        LOAD_CMD+=(pinmaps "${BPF_PIN_DIR}")
+    fi
+
+    if "${LOAD_CMD[@]}" >>"${STATUS_FILE}" 2>&1 &&
+       ip netns exec "${NS_GUARD}" \
+           ip link set dev "${GUARD_TERMINAL_IF}" "${XDP_ATTACH_TOKEN}" \
+           pinned "${PROGRAM_PIN}" >>"${STATUS_FILE}" 2>&1; then
+        XDP_ATTACHED=1
+        echo "blocklist_maps=${BPF_PIN_DIR}" >>"${STATUS_FILE}"
+    fi
 else
-    echo "mode=xdp_attach_failed" >>"${STATUS_FILE}"
-    echo "WARNING: XDP attach failed (mode=${XDP_MODE:-skb}). Falling back to TC …"
-    CASE="${CASE_CANON}" bash "${ROOT_DIR}/scripts/attach_tc_fallback.sh"
+    echo "WARNING: bpftool unavailable; blocklist maps will not be pinned" | tee -a "${STATUS_FILE}"
+    if ip netns exec "${NS_GUARD}" \
+        ip link set dev "${GUARD_TERMINAL_IF}" "${XDP_ATTACH_TOKEN}" \
+        obj "${OBJ}" sec xdp >>"${STATUS_FILE}" 2>&1; then
+        XDP_ATTACHED=1
+        echo "blocklist_maps=unavailable" >>"${STATUS_FILE}"
+    fi
+fi
+
+echo "Attaching XDP front end on ${NS_GUARD}/${GUARD_TERMINAL_IF}" | tee -a "${STATUS_FILE}"
+
+if [[ "${XDP_ATTACHED}" == 1 ]]; then
+    echo "xdp_mode=attached_${XDP_MODE:-skb}" >>"${STATUS_FILE}"
+    echo "SUCCESS: XDP front end attached on ${NS_GUARD}/${GUARD_TERMINAL_IF} (mode=${XDP_MODE:-skb})"
+    if TC_ROLE=pipeline CASE="${CASE}" bash "${ROOT_DIR}/scripts/attach_tc_fallback.sh"; then
+        echo "mode=xdp_tc_${TC_VARIANT}_pipeline" >>"${STATUS_FILE}"
+        echo "SUCCESS: full XDP -> TC ${TC_VARIANT} pipeline is active"
+    else
+        echo "mode=tc_pipeline_attach_failed" >>"${STATUS_FILE}"
+        ip netns exec "${NS_GUARD}" \
+            ip link set dev "${GUARD_TERMINAL_IF}" xdp off 2>/dev/null || true
+        exit 1
+    fi
+else
+    echo "xdp_mode=attach_failed" >>"${STATUS_FILE}"
+    echo "WARNING: XDP front-end attach failed (mode=${XDP_MODE:-skb}). Using TC only …"
+    TC_ROLE=fallback CASE="${CASE}" bash "${ROOT_DIR}/scripts/attach_tc_fallback.sh"
 fi

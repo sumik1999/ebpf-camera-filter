@@ -47,10 +47,9 @@ struct {
  *
  * Steps
  *  1. Parse Ethernet/IP/L4 headers (Berkeley-style layered walk).
- *  2. Pass whitelisted APOC traffic unconditionally.
- *  3. Process only UDP floods and TCP SYN floods.
- *  4. Update all CMS rows and compute minimum count estimate.
- *  5. If estimate > threshold → XDP_DROP; else → XDP_PASS.
+ *  2. Process only UDP floods and TCP SYN floods; no IP is exempt.
+ *  3. Update all CMS rows and compute minimum count estimate.
+ *  4. If estimate > threshold → XDP_DROP; else → XDP_PASS.
  */
 SEC("xdp")
 int xdp_ingress(struct xdp_md *ctx)
@@ -62,11 +61,8 @@ int xdp_ingress(struct xdp_md *ctx)
     if (!parse_packet(ctx, &key, &is_syn))
         return XDP_PASS;
 
-    /* Step 2: whitelist APOC telemetry */
-    if (whitelisted(&key))
-        return XDP_PASS;
-
-    /* Step 3: only rate-limit UDP floods and TCP SYN floods */
+    /* Step 2: only rate-limit UDP floods and TCP SYN floods. Trusted
+     * services remain rate-limited; policy is applied later at nftables. */
     if (key.proto != IPPROTO_UDP &&
         !(key.proto == IPPROTO_TCP && is_syn))
         return XDP_PASS;

@@ -17,6 +17,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${ROOT_DIR}/config.env"
 
 CASE="${CASE:-${1:-xdp_elastic_ebpf}}"
+TC_ROLE="${TC_ROLE:-fallback}"
 STATUS_DIR="${ROOT_DIR}/eval/results"
 mkdir -p "${STATUS_DIR}"
 STATUS_FILE="${STATUS_DIR}/${CASE}_attach_status.txt"
@@ -25,15 +26,16 @@ if [[ "${EUID}" -ne 0 ]]; then
     echo "Run with sudo: sudo CASE=${CASE} $0"; exit 1
 fi
 
-# Map XDP case names to TC-compatible source files
+# Map case names to genuine SCHED_CLS programs. XDP objects cannot be reused:
+# their context and action values are different from TC direct-action values.
 case "${CASE}" in
     xdp_cms_ebpf|cms_ebpf)
-        SRC="${ROOT_DIR}/ebpf/xdp_cms_filter.bpf.c"
-        OBJ="${ROOT_DIR}/ebpf/xdp_cms_filter_tc.bpf.o"
+        SRC="${ROOT_DIR}/ebpf/tc_cms_filter.bpf.c"
+        OBJ="${ROOT_DIR}/ebpf/tc_cms_filter.bpf.o"
         ;;
     xdp_elastic_ebpf|elastic_ebpf)
-        SRC="${ROOT_DIR}/ebpf/xdp_elastic_filter.bpf.c"
-        OBJ="${ROOT_DIR}/ebpf/xdp_elastic_filter_tc.bpf.o"
+        SRC="${ROOT_DIR}/ebpf/tc_elastic_filter.bpf.c"
+        OBJ="${ROOT_DIR}/ebpf/tc_elastic_filter.bpf.o"
         ;;
     *) echo "Unsupported TC fallback CASE: ${CASE}"; exit 1 ;;
 esac
@@ -46,12 +48,7 @@ case "${MACHINE}" in
     *)             BPF_TARGET_ARCH="x86"   ;;
 esac
 
-# Compile with TC section name override (-DTC_FALLBACK inserts a
-# compatibility section alias so the same source works for both XDP
-# and TC; the XDP source files include a SEC("tc") alias guard below.)
-#
-# We rely on the kernel accepting "xdp" section programs loaded via
-# tc; alternatively compile with -DUSE_TC_HOOK to rename the section.
+# Compile the dedicated TC classifier for this architecture.
 TRIPLE="x86_64-linux-gnu"
 [[ "${BPF_TARGET_ARCH}" == "arm64" ]] && TRIPLE="aarch64-linux-gnu"
 
@@ -61,7 +58,6 @@ LIBBPF_INC=""
 
 clang -O2 -g -target bpf \
     -D__TARGET_ARCH_${BPF_TARGET_ARCH} \
-    -DTC_FALLBACK=1 \
     ${SYS_INC} ${LIBBPF_INC} \
     -I"${ROOT_DIR}/ebpf" \
     -c "${SRC}" -o "${OBJ}" >>"${STATUS_FILE}" 2>&1 || {
@@ -72,9 +68,14 @@ clang -O2 -g -target bpf \
 ip netns exec "${NS_GUARD}" tc qdisc replace dev "${GUARD_TERMINAL_IF}" clsact
 if ip netns exec "${NS_GUARD}" \
         tc filter replace dev "${GUARD_TERMINAL_IF}" ingress \
-        bpf da obj "${OBJ}" sec xdp >>"${STATUS_FILE}" 2>&1; then
-    echo "mode=tc_fallback_attached" >>"${STATUS_FILE}"
-    echo "TC fallback ${CASE} attached on ${NS_GUARD}/${GUARD_TERMINAL_IF}"
+        bpf da obj "${OBJ}" sec classifier >>"${STATUS_FILE}" 2>&1; then
+    echo "tc_mode=${TC_ROLE}_attached" >>"${STATUS_FILE}"
+    if [[ "${TC_ROLE}" == "pipeline" ]]; then
+        echo "TC pipeline stage ${CASE} attached on ${NS_GUARD}/${GUARD_TERMINAL_IF}"
+    else
+        echo "mode=tc_only_fallback" >>"${STATUS_FILE}"
+        echo "TC-only fallback ${CASE} attached on ${NS_GUARD}/${GUARD_TERMINAL_IF}"
+    fi
 else
     echo "mode=tc_fallback_failed" >>"${STATUS_FILE}"
     echo "ERROR: TC fallback attach also failed. Check ${STATUS_FILE}."

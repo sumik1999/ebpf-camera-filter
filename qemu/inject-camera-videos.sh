@@ -34,6 +34,14 @@ commands=$work/debugfs.commands
     done
     echo "write /usr/local/lib/qemu-camera-init /etc/init.d/S01qemu-camera"
     echo 'set_inode_field /etc/init.d/S01qemu-camera mode 0100755'
+    echo "write /usr/local/lib/guest-camera-network-test.sh /opt/qemu-camera/network-test.sh"
+    echo 'set_inode_field /opt/qemu-camera/network-test.sh mode 0100755'
+    echo "write /usr/local/lib/camera-network-test-init.sh /etc/init.d/S99qemu-camera-test"
+    echo 'set_inode_field /etc/init.d/S99qemu-camera-test mode 0100755'
+    echo "write /usr/local/lib/guest-wifi-camera-test.sh /opt/qemu-camera/wifi-network-test.sh"
+    echo 'set_inode_field /opt/qemu-camera/wifi-network-test.sh mode 0100755'
+    echo "write /usr/local/lib/wifi-camera-test-init.sh /etc/init.d/S99qemu-wifi-camera-test"
+    echo 'set_inode_field /etc/init.d/S99qemu-wifi-camera-test mode 0100755'
 } >"$commands"
 
 debugfs -w -f "$commands" "$rootfs" >/dev/null

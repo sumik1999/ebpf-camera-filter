@@ -3,10 +3,11 @@ config BR2_PACKAGE_AIRPORT_EBPF
 	depends on BR2_aarch64
 	depends on BR2_PACKAGE_BPFTOOL
 	select BR2_PACKAGE_LIBBPF
+	select BR2_PACKAGE_PYTHON3
 	help
 	  XDP eBPF filters for the Airport security camera project.
-	  Includes Count-Min Sketch (CMS) and ElasticSketch filters
-	  for real-time packet rate limiting at the NIC driver level.
+	  Includes an XDP validation front end plus TC-ingress Count-Min
+	  Sketch (CMS) and ElasticSketch-inspired flow filters.
 
 	  https://github.com/kiran/airport-ebpf-mac
 

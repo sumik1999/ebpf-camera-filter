@@ -24,9 +24,9 @@
  *     the threshold, the flow is promoted into the heavy table so its
  *     counter is isolated from lighter traffic going forward.
  *
- * APOC telemetry whitelisting
- *   Telemetry packets are whitelisted before either stage, so they
- *   never consume heavy-table entries or increment sketch counters.
+ * Trusted traffic policy
+ *   No source IP bypasses accounting. Low-rate telemetry remains below the
+ *   sketch threshold, and nftables applies a bounded service-specific policy.
  *
  * BPF maps used
  *   heavy  : BPF_MAP_TYPE_LRU_HASH  – per-flow precise counters.
@@ -64,14 +64,13 @@ struct {
  *
  * Decision flow
  *  1. Parse packet (Berkeley-style layered walk in common.h).
- *  2. Whitelist APOC telemetry → XDP_PASS immediately.
- *  3. Filter only UDP floods and TCP SYN floods.
- *  4a. If flow already in heavy table → update precise counter.
+ *  2. Filter only UDP floods and TCP SYN floods; no IP is exempt.
+ *  3a. If flow already in heavy table → update precise counter.
  *      If counter > threshold → XDP_DROP.
- *  4b. If flow NOT in heavy table → update light sketch bucket.
+ *  3b. If flow NOT in heavy table → update light sketch bucket.
  *      If sketch estimate > threshold → promote flow to heavy table
  *      and DROP the triggering packet.
- *  5. Below threshold → XDP_PASS.
+ *  4. Below threshold → XDP_PASS.
  */
 SEC("xdp")
 int xdp_ingress(struct xdp_md *ctx)
@@ -83,11 +82,8 @@ int xdp_ingress(struct xdp_md *ctx)
     if (!parse_packet(ctx, &key, &is_syn))
         return XDP_PASS;
 
-    /* Step 2: APOC telemetry is always allowed */
-    if (whitelisted(&key))
-        return XDP_PASS;
-
-    /* Step 3: only process attack-pattern traffic */
+    /* Step 2: process attack-pattern traffic. No source IP bypasses flow
+     * accounting; trusted-service policy is enforced later at nftables. */
     if (key.proto != IPPROTO_UDP &&
         !(key.proto == IPPROTO_TCP && is_syn))
         return XDP_PASS;

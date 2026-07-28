@@ -49,6 +49,12 @@ not needed:
 ```bash
 ./qemu-build.sh
 ./qemu-run.sh
+
+# Unattended OS, eBPF, video, and four-camera loopback validation
+./qemu-camera-network-test.sh
+
+# WPA2 AP plus four isolated software Wi-Fi camera stations
+./qemu-wifi-camera-test.sh
 ```
 
 Log in as `root` with an empty password. The environment places four
@@ -131,8 +137,8 @@ make visual-demo      # Single-case visualization
 |------|------|---------|
 | `no_defense` | — | Baseline |
 | `linux_filter` | nftables | Standard firewall |
-| `xdp_cms_ebpf` | XDP | Count-Min Sketch |
-| `xdp_elastic_ebpf` | XDP | ElasticSketch |
+| `xdp_cms_ebpf` | XDP → TC | XDP validation + TC Count-Min Sketch |
+| `xdp_elastic_ebpf` | XDP → TC | XDP validation + TC ElasticSketch |
 
 ---
 
@@ -158,26 +164,48 @@ make visual-demo      # Single-case visualization
 
 | Hook | Speed | Use Case |
 |------|-------|----------|
-| **XDP** | Fastest (pre-skb) | High-throughput rate limiting |
-| **TC ingress** | Fast (post-skb) | Fallback for virtual interfaces |
+| **XDP** | Fastest (pre-skb) | Early header validation and drops |
+| **TC ingress** | Fast (post-skb) | Stateful CMS/Elastic flow analytics |
 
-The test harness auto-selects XDP mode for real NICs and falls back to TC ingress for virtual Ethernet (Docker VMs, Lima, OrbStack).
+Defended cases attach both stages in order. If the interface cannot support XDP,
+the harness explicitly reports that condition and continues with a TC-only fallback.
 
 ### Packet Flow
 
 ```
 xdp_md { data, data_end }
    ↓
-struct ethhdr → ETH_P_IP check
+struct ethhdr → optional 802.1Q/802.1ad VLAN tags
    ↓
-struct iphdr → IHL validation, proto extraction
+struct iphdr → version, IHL, total length and fragment validation
    ↓
-struct udphdr / tcphdr → port, SYN detection
+struct udphdr / tcphdr → source/destination ports, lengths, SYN detection
    ↓
 BPF maps (Count-Min Sketch / ElasticSketch)
 ```
 
 All pointers are bounds-checked against `ctx->data_end`. The eBPF verifier enforces these checks at load time.
+
+### XDP blocklist management
+
+The attachment script pins XDP maps under `/sys/fs/bpf/airport-defense`. Manage
+exact addresses, CIDR prefixes, and the optional Bloom filter with:
+
+```bash
+sudo python3 scripts/blocklistctl.py exact add 198.51.100.10
+sudo python3 scripts/blocklistctl.py prefix add 203.0.113.0/24
+sudo python3 scripts/blocklistctl.py bloom add 192.0.2.20
+sudo python3 scripts/blocklistctl.py status
+
+sudo python3 scripts/blocklistctl.py exact delete 198.51.100.10
+sudo python3 scripts/blocklistctl.py prefix delete 203.0.113.0/24
+sudo python3 scripts/blocklistctl.py bloom clear
+```
+
+Camera OS installs the same utility as `airport-blocklist`. Exact and LPM maps
+do not produce false positives. Bloom filtering is disabled until explicitly
+populated/enabled and can produce false positives; individual Bloom entries
+cannot be deleted, so rebuild it with `bloom clear` when entries expire.
 
 ---
 
@@ -191,6 +219,8 @@ ebpf-camera-filter/
 ├── build-native.sh             # macOS native fallback
 ├── qemu-build.sh               # Build portable Pi 4 emulator container
 ├── qemu-run.sh                 # Boot output-images in QEMU
+├── qemu-camera-network-test.sh # Validate four concurrent guest camera streams
+├── qemu-wifi-camera-test.sh    # Validate WPA2 and four software Wi-Fi stations
 ├── docker-compose.qemu.yml     # QEMU container and persistent SD volume
 ├── qemu/                       # QEMU 10 image, entrypoint, and documentation
 ├── fix-docker-dns.sh           # Docker DNS fix (macOS)
@@ -201,10 +231,12 @@ ebpf-camera-filter/
 │   ├── output/                 # Build artifacts (gitignored)
 │   └── package/                # Custom packages
 ├── ebpf/                       # eBPF source code
-│   ├── common.h                # Packet parser
+│   ├── common.h                # Shared XDP helpers
+│   ├── tc_common.h             # TC-context packet parser
 │   ├── maps.h                  # Shared maps/structures
-│   ├── xdp_cms_filter.bpf.c    # Count-Min Sketch filter
-│   └── xdp_elastic_filter.bpf.c # ElasticSketch filter
+│   ├── xdp_frontend.bpf.c      # First-stage XDP validation
+│   ├── tc_cms_filter.bpf.c     # TC Count-Min Sketch stage
+│   └── tc_elastic_filter.bpf.c # TC ElasticSketch-inspired stage
 ├── scripts/                    # Test harness scripts
 │   ├── check_env.sh            # Pre-flight checks
 │   ├── setup_ns_tree.sh        # Network namespace topology
@@ -301,6 +333,7 @@ HEAVY_FLOW_THRESHOLD_PPS=400  # Heavy hitter threshold
 | [setup-guide.md](setup-guide.md) | Flashing & deployment guide |
 | [build-readme.md](build-readme.md) | Build troubleshooting details |
 | [security-camera-build-report.md](security-camera-build-report.md) | Technical report |
+| [QEMU-RASPBERRY-TESTING-BRANCH-REPORT.md](QEMU-RASPBERRY-TESTING-BRANCH-REPORT.md) | QEMU, Wi-Fi, and eBPF branch status |
 
 ---
 

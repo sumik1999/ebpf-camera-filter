@@ -311,6 +311,7 @@ HEAVY_FLOW_THRESHOLD_PPS=400  # Heavy hitter threshold
 | [BUILD-README.md](docs/guides/BUILD-README.md) | Build troubleshooting details |
 | [docs/reports/SECURITY-CAMERA-BUILD-REPORT.md](docs/reports/SECURITY-CAMERA-BUILD-REPORT.md) | Technical report |
 | [QEMU branch report](docs/reports/QEMU-RASPBERRY-TESTING-BRANCH-REPORT.md) | QEMU, Wi-Fi, and eBPF status |
+| [Next-steps handoff](docs/reports/next_steps.pdf) | Prioritized remaining work and repository manipulation map |
 | [DDoS project plan](docs/references/DDoS_Mitigation_Project_Plan_FINAL.pdf) | Final mitigation architecture plan |
 
 ---

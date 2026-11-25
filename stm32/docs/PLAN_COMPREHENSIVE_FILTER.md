@@ -172,9 +172,12 @@ Status: **in progress locally**. The 64-instruction limit, 1 KB double banks, an
 
 ### M3 — Stateless comprehensive policy
 
-- Add service/VLAN allowlists and malformed/unsupported handling.
-- Add global and per-service PPS/BPS token buckets.
-- Add exact reason counters and deterministic tick tests.
+Status: **native reference implemented locally, not connected to the hook**. Service/VLAN/protocol policy and exact reason counters are covered by host and sanitizer tests. The driver hook remains on its original dynamically installed VM/native path until equivalent metadata bytecode passes differential tests.
+
+- Add service/VLAN allowlists and malformed/unsupported handling. **Implemented as the native reference.**
+- Rewrite the stateless decisions as verified `VM_CTX_META` bytecode. **Next.**
+- Add global and per-service PPS/BPS token buckets. **After VM-policy parity.**
+- Add exact reason counters and deterministic tick tests. **Native reason counters implemented; tick tests await token buckets.**
 
 **Done when:** UDP, SYN, ICMP, ARP, fragment, and bandwidth floods are bounded while reserved traffic continues.
 

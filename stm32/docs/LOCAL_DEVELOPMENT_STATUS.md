@@ -53,41 +53,64 @@ Current parser coverage:
 
 The parser has no heap allocation and no unbounded loops. `packet_meta_t` is naturally aligned and currently 36 bytes on the host.
 
+## Standalone stateless policy implemented (not integrated)
+
+New files:
+
+```text
+firmware/Filter/filter_policy.h
+firmware/Filter/filter_policy.c
+firmware/Filter/ingress_filter.h
+firmware/Filter/ingress_filter.c
+tests/host/test_ingress_filter.c
+```
+
+The parser and policy are deliberately kept local and standalone. The production hook is restored to its original dynamic VM/native path:
+
+```text
+xdp_hook_run
+  -> existing hook_run
+  -> currently installed VM bytecode, native baseline, or PASS
+```
+
+`xdp_hook_run()` does not call `ingress_filter_run()`. This avoids a transitional native-C filter in front of the VM. The standalone native implementation is now the correctness oracle for the metadata bytecode that will be installed later.
+
+The standalone monitor policy parses and counts every frame but passes everything. A validated strict policy can enforce:
+
+- malformed and unsupported handling;
+- explicit IPv6 and fragment behavior;
+- untagged/VLAN allowlisting (including inner VLAN for QinQ);
+- ARP, ICMP, TCP, UDP, other-L2 and other-IPv4 protocol policy;
+- fixed TCP/UDP destination-service allowlists;
+- exact PASS/DROP counters by reason.
+
+Configuration is copied into fixed storage. Invalid counts, protocols, VLAN IDs, or zero service ports are refused without replacing the active policy. Tests confirm that a strict local policy can drop a frame while the untouched `xdp_hook_run()` still follows its installed VM/native program.
+
 ## Verification
 
-Default host build:
+Default host build and ASan/UBSan build:
 
 ```text
-279 passed, 0 failed
+300 passed, 0 failed
 ```
 
-ASan/UBSan build:
-
-```text
-279 passed, 0 failed
-```
-
-Override build with `VM_MAX_INSNS=128`:
-
-```text
-279 passed, 0 failed
-```
+The earlier override build with `VM_MAX_INSNS=128` passed all 279 tests available at that milestone, confirming VM storage configurability.
 
 ## Not implemented yet
 
-- parser integration into the live Ethernet hook;
 - strict ARP field validation;
 - bounded IPv6 extension-header parsing;
-- policy/service allowlists;
 - token buckets;
 - source and prefix tables;
+- atomic policy replacement while RX is active;
 - `VM_CTX_META` / ISA v2 classification;
 - authenticated XCFG2 runtime policy updates;
 - STM32 hardware measurements.
 
 ## Next coding slice
 
-1. Add a native policy structure with explicit malformed, IPv6, fragment, VLAN and service behavior.
-2. Add exact PASS/DROP reason counters.
-3. Integrate parse + stateless policy into a new experiment configuration without changing C0–C4.
-4. Add global PPS/BPS token buckets only after the stateless policy tests pass.
+1. Freeze a canonical metadata byte layout independent of C padding.
+2. Introduce `VM_CTX_META` as ISA v2 and teach the verifier/loader about it.
+3. Manually translate the standalone stateless policy into metadata bytecode.
+4. Differential-test native policy versus VM policy before installing it in the hook.
+5. Integrate only the verified metadata program through the existing dynamic slot/update mechanism.

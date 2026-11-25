@@ -65,5 +65,6 @@ void test_native(void);      /* test_native.c */
 void test_exp_configs(void); /* test_hooks.c */
 void test_loader(void);      /* test_loader.c */
 void test_packet_parser(void); /* test_packet_parser.c */
+void test_ingress_filter(void); /* test_ingress_filter.c */
 
 #endif /* TEST_COMMON_H */

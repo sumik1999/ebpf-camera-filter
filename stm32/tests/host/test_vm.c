@@ -812,6 +812,7 @@ int main(void)
     test_exp_configs();
     test_loader();
     test_packet_parser();
+    test_ingress_filter();
 
     printf("\n%d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;

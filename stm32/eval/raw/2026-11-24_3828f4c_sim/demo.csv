@@ -1,0 +1,3 @@
+build,trace,cfg,loop,burst,frames_in,mac_missed,early_total,early_pass,early_drop,late_total,late_pass,late_drop,delivered,echo_rx,tx_echo,tx_ping_reply,tx_icmp_unreach,tx_arp,tx_other,stranded_events,stranded_frames,stranded_at_end,rx_alloc_errors,pool_max,ctrl_ok,ctrl_refused,tx_ctrl
+nosys,loader_demo,4,fixed,1,153,0,153,103,50,102,102,0,103,50,50,0,50,2,0,0,0,0,0,5,1,1,2
+rtos,loader_demo,4,fixed,1,153,0,153,103,50,102,102,0,103,50,50,0,50,2,0,0,0,0,0,5,1,1,2

@@ -1,0 +1,45 @@
+BENCH start
+CASE calib_empty 0
+CASE calib_nop10 0
+CASE filter_vm_eth_attack 0
+CASE filter_native_eth_attack 0
+CASE filter_vm_eth_udp_other 1
+CASE filter_native_eth_udp_other 1
+CASE filter_vm_eth_tcp 1
+CASE filter_native_eth_tcp 1
+CASE filter_vm_eth_arp 1
+CASE filter_native_eth_arp 1
+CASE filter_vm_eth_runt20 0
+CASE filter_native_eth_runt20 0
+CASE filter_vm_ip_attack 0
+CASE filter_native_ip_attack 0
+CASE filter_vm_ip_udp_other 1
+CASE filter_native_ip_udp_other 1
+CASE filter_vm_ip_tcp 1
+CASE filter_native_ip_tcp 1
+[ddos_prototype] C0: no filter (target UDP port 1900)
+CASE hook_C0_attack 1
+CASE hook_C0_udp_other 1
+CASE hook_C0_tcp 1
+CASE hook_C0_arp 1
+[ddos_prototype] C1: native C at lwIP hook (target UDP port 1900)
+CASE hook_C1_attack 0
+CASE hook_C1_udp_other 1
+CASE hook_C1_tcp 1
+CASE hook_C1_arp 1
+[ddos_prototype] C2: VM bytecode at lwIP hook (target UDP port 1900)
+CASE hook_C2_attack 0
+CASE hook_C2_udp_other 1
+CASE hook_C2_tcp 1
+CASE hook_C2_arp 1
+[ddos_prototype] C3: native C at driver hook (target UDP port 1900)
+CASE hook_C3_attack 0
+CASE hook_C3_udp_other 1
+CASE hook_C3_tcp 1
+CASE hook_C3_arp 1
+[ddos_prototype] C4: VM bytecode at driver hook (target UDP port 1900)
+CASE hook_C4_attack 0
+CASE hook_C4_udp_other 1
+CASE hook_C4_tcp 1
+CASE hook_C4_arp 1
+BENCH end

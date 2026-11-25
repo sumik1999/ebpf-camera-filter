@@ -1,0 +1,7 @@
+# MODEL output (assumptions in eval/flood_model.py); inputs: measure.csv, build=rtos
+config,name,insns_attack,insns_echo,max_attack_pps_cpi1,max_attack_pps_cpi2,cpu_pct_at_10M_cpi1,legit_survival_pct_at_10M_cpi1,cpu_pct_at_100M_cpi1,legit_survival_pct_at_100M_cpi1
+C0,no filter,5014,4888.0,48886,23955,20.0,100.0,182.3,54.9
+C1,native C @ lwIP hook,2952,4904.0,83027,40683,12.6,100.0,108.1,92.5
+C2,VM @ lwIP hook,3094,5046.0,79171,38770,13.1,100.0,113.3,88.3
+C3,native C @ driver hook,1531,4909.0,160086,78440,7.5,100.0,57.0,100.0
+C4,VM @ driver hook,1726,5104.0,141886,69465,8.3,100.0,64.1,100.0

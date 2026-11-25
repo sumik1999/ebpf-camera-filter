@@ -1,0 +1,21 @@
+/Users/nisha/Desktop/Resume Projects/MTP_XDP_STM32/sim/qemu_m33/build/simfw.elf  :
+section             size        addr
+.vectors              64   268435456
+.text              31328   268435520
+.ARM.exidx             8   268466848
+.data                108   268466856
+.bss               77132   268466964
+.debug_info        82436           0
+.debug_abbrev      21496           0
+.debug_loclists    44086           0
+.debug_aranges      2296           0
+.debug_rnglists     4158           0
+.debug_line        56597           0
+.debug_str         13204           0
+.comment              69           0
+.ARM.attributes       56           0
+.debug_frame       11568           0
+.debug_line_str      266           0
+Total             344872
+
+

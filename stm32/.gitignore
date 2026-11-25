@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# STM32CubeIDE / Eclipse: build output and workspace data
+Debug/
+Release/
+.metadata/
+RemoteSystemsTempFiles/
+
+# Generic build output (e.g. the cross-compile check in build/)
+build/
+*.o
+*.d
+*.su
+
+# Host unit-test binaries (tests/host)
+tests/host/test_vm
+tests/host/test_vm_asan
+tests/host/*.dSYM/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Note: raw results in eval/ are evidence for thesis numbers. Keep them IN git.

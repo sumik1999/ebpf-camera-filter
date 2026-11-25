@@ -1,0 +1,10 @@
+; The DDoS filter retargeted at UDP port 53 (used by the live-update demo).
+ctx eth
+ldh r1, [r0+12]        ; EtherType
+jne r1, 0x0800, +5     ; not IPv4 -> PASS
+ldb r2, [r0+23]        ; IP protocol
+jne r2, 17, +3         ; not UDP -> PASS
+ldh r3, [r0+36]        ; UDP destination port
+jne r3, 53, +1         ; not port 53 -> PASS
+ret 0                  ; DROP
+ret 1                  ; PASS

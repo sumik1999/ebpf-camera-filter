@@ -1,0 +1,44 @@
+=== nosys: sim/qemu_m33/build/simfw.elf ===
+/Users/nisha/Desktop/Resume Projects/MTP_XDP_STM32/sim/qemu_m33/build/simfw.elf  :
+section             size        addr
+.vectors             192   268435456
+.text              31252   268435648
+.ARM.exidx             8   268466900
+.data                112   268466908
+.bss               77144   268467020
+.debug_info        85666           0
+.debug_abbrev      22113           0
+.debug_loclists    43941           0
+.debug_aranges      2384           0
+.debug_rnglists     4160           0
+.debug_line        57487           0
+.debug_str         13360           0
+.comment              69           0
+.ARM.attributes       56           0
+.debug_frame       11748           0
+.debug_line_str      266           0
+Total             349958
+
+
+=== rtos: sim/qemu_m33/build/simrtos.elf ===
+/Users/nisha/Desktop/Resume Projects/MTP_XDP_STM32/sim/qemu_m33/build/simrtos.elf  :
+section             size        addr
+.vectors             192   268435456
+.text              43872   268435648
+.ARM.exidx             8   268479520
+.data                116   268479528
+.bss              113408   268479648
+.debug_info       139487           0
+.debug_abbrev      29700           0
+.debug_loclists    71561           0
+.debug_aranges      4224           0
+.debug_rnglists     7545           0
+.debug_line        98815           0
+.debug_str         25486           0
+.comment              69           0
+.ARM.attributes       56           0
+.debug_frame       18224           0
+.debug_line_str      266           0
+Total             553029
+
+

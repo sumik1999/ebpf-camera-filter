@@ -1,0 +1,16 @@
+date: 2026-11-24 19:59:56 IST
+commit: 3828f4c3d1f8bf6b3bc6d6dd58d99acb5967e4d3
+QEMU emulator version 10.2.2
+arm-none-eabi-gcc (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+machine: mps2-an505 (Cortex-M33); simulated ST driver + lwIP 2.2.1; -O2
+builds: nosys (lwIP NO_SYS) and rtos (FreeRTOS 11.2.0 ARM_CM33_NTZ, QEMU -icount shift=0)
+matrix: traces=['legit', 'attack', 'mix50', 'mix90', 'mix99', 'odd'] configs=[0, 1, 2, 3, 4] loops=['st', 'fixed'] bursts=[1, 2, 4, 8]
+sha256 legit.pcap 30ff8fb8f10e678f4f53111065ff409c6d0b7cf7309b2f5dce665c765859910f
+sha256 attack.pcap c4c3821cee624d699ab31da56b21c6fa5f2a5c8cce3059b99cd342921e326dc7
+sha256 mix50.pcap f47dd2ddb71032c2b54aadf0dbc7767e5f50ca6efce465834bff6d55e08154b3
+sha256 mix90.pcap ce7ee7a7cdda0c5883ad229ce499e252f5a65f49312f9d01993cb1f8b196dc32
+sha256 mix99.pcap 3e3d68db7bd81997a353b9e897b659febcd4dc9cb043e5756e7ccb1dbe3a2c42
+sha256 odd.pcap 501fed8982dce4331751f44998621496bb94dd6940099022ea0f2788acd5e970
+sha256 measure.pcap 5a49c91aebb849248e96651fd85f6906f461f5b7c52f986bac64ff68bcde5337
+sha256 loader_demo.pcap 7ca428ff0f69406cc03a5e86381b81b506c10d30adc42e9a0608327ea16e4634
+command: python3 bench/run_sim.py

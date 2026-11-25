@@ -1,0 +1,19 @@
+=== nosys ===
+[ddos_prototype] C4: VM bytecode at driver hook (target UDP port 1900)
+[ctrl] ERR hook refused the program: backward/self jump not allowed (would permit loops)
+[ctrl] OK installed in driver hook
+RESULT,cfg,loop,burst,frames_in,mac_missed,early_total,early_pass,early_drop,late_total,late_pass,late_drop,delivered,echo_rx,tx_echo,tx_ping_reply,tx_icmp_unreach,tx_arp,tx_other,stranded_events,stranded_frames,stranded_at_end,rx_alloc_errors,pool_max,ctrl_ok,ctrl_refused,tx_ctrl
+RESULT,4,fixed,1,153,0,153,103,50,102,102,0,103,50,50,0,50,2,0,0,0,0,0,5,1,1,2
+=== rtos ===
+[ddos_prototype] C4: VM bytecode at driver hook (target UDP port 1900)
+RTOS,stack_free_min_bytes,feeder=3832,IDLE=432,TCP/IP=1368,Tmr Svc=380,EthIf=824
+RESULT,cfg,loop,burst,frames_in,mac_missed,early_total,early_pass,early_drop,late_total,late_pass,late_drop,delivered,echo_rx,tx_echo,tx_ping_reply,tx_icmp_unreach,tx_arp,tx_other,stranded_events,stranded_frames,stranded_at_end,rx_alloc_errors,pool_max,ctrl_ok,ctrl_refused,tx_ctrl
+RESULT,4,fixed,1,153,0,153,103,50,102,102,0,103,50,50,0,50,2,0,0,0,0,0,5,1,1,2
+CHECK PASS: [nosys] early_drop == expected DROPs in labels
+CHECK PASS: [nosys] one rulebook refused, one installed
+CHECK PASS: [nosys] both control replies sent
+CHECK PASS: [nosys] every echo answered
+CHECK PASS: [rtos] early_drop == expected DROPs in labels
+CHECK PASS: [rtos] one rulebook refused, one installed
+CHECK PASS: [rtos] both control replies sent
+CHECK PASS: [rtos] every echo answered

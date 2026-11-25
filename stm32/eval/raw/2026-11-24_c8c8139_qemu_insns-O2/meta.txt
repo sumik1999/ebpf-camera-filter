@@ -1,0 +1,8 @@
+date: 2026-11-24 17:20:38 IST
+commit: c8c8139f2609c24d7da109cc7a42f5f27015844c
+dirty: 0 tracked files changed
+QEMU emulator version 10.2.2
+arm-none-eabi-gcc (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+OPT=-O2
+machine: mps2-an505 (Cortex-M33), -accel tcg,one-insn-per-tb=on -d exec,nochain
+command: make -C sim/qemu_m33 record OPT=-O2

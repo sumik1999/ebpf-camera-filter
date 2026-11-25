@@ -1,0 +1,49 @@
+arm-none-eabi-gcc (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+lwIP ip4.c compiled with LWIP_HOOK_IP4_INPUT -> lwip_ip4_hook_input
+  ip4.o calls lwip_ip4_hook_input: yes
+
+--- code size (our objects)
+   text	   data	    bss	    dec	    hex	filename
+     88	      0	      0	     88	     58	ddos_native.o
+    788	      0	      0	    788	    314	ddos_prototype_init.o
+    212	      0	     28	    240	     f0	lwip_ip4_hook.o
+     44	      0	      0	     44	     2c	lwip_ip4_hook_glue.o
+   1064	      0	      0	   1064	    428	vm_interpreter.o
+    797	      0	      0	    797	    31d	vm_loader.o
+    273	      0	      0	    273	    111	vm_slot.o
+    765	      0	      0	    765	    2fd	vm_verifier.o
+    212	      0	     28	    240	     f0	xdp_dma_hook.o
+
+--- stack per function (bytes)
+firmware/DDoS_Prototype/ddos_native.c:14:5:ddos_native_eth	0	static
+firmware/DDoS_Prototype/ddos_native.c:24:5:ddos_native_ip	0	static
+firmware/DDoS_Prototype/ddos_prototype_init.c:34:13:ddos_config_name	0	static
+firmware/DDoS_Prototype/ddos_prototype_init.c:49:5:ddos_prototype_init_config	24	static
+firmware/DDoS_Prototype/ddos_prototype_init.c:84:5:ddos_prototype_init	24	static
+firmware/Network_Hooks/lwip_ip4_hook.c:9:6:lwip_ip4_hook_init	8	static
+firmware/Network_Hooks/lwip_ip4_hook.c:14:18:lwip_ip4_hook_install_vm	8	static
+firmware/Network_Hooks/lwip_ip4_hook.c:19:6:lwip_ip4_hook_install_native	8	static
+firmware/Network_Hooks/lwip_ip4_hook.c:24:6:lwip_ip4_hook_clear	8	static
+firmware/Network_Hooks/lwip_ip4_hook.c:29:5:lwip_ip4_hook_run	8	static
+firmware/Network_Hooks/lwip_ip4_hook.c:34:21:lwip_ip4_hook_get_stats	0	static
+firmware/Network_Hooks/lwip_ip4_hook.c:39:20:lwip_ip4_hook_filter_kind	0	static
+firmware/Network_Hooks/lwip_ip4_hook_glue.c:9:9:lwip_ip4_hook_input	16	static
+firmware/VM_Engine/vm_interpreter.c:32:5:vm_interpreter_run	72	static
+firmware/VM_Engine/vm_loader.c:4:10:vm_crc32	4	static
+firmware/VM_Engine/vm_loader.c:19:6:vm_loader_init	0	static
+firmware/VM_Engine/vm_loader.c:28:9:vm_loader_msg_ctx	0	static
+firmware/VM_Engine/vm_loader.c:33:18:vm_loader_load	48	static
+firmware/VM_Engine/vm_loader.c:75:13:vm_load_strerror	0	static
+firmware/VM_Engine/vm_slot.c:3:6:vm_slot_init	0	static
+firmware/VM_Engine/vm_slot.c:12:18:vm_slot_install	24	static
+firmware/VM_Engine/vm_slot.c:33:6:vm_slot_clear	0	static
+firmware/VM_Engine/vm_slot.c:40:13:vm_slot_strerror	0	static
+firmware/VM_Engine/vm_verifier.c:70:20:vm_verify	12	static
+firmware/VM_Engine/vm_verifier.c:128:13:vm_verify_strerror	0	static
+firmware/Network_Hooks/xdp_dma_hook.c:9:6:xdp_hook_init	8	static
+firmware/Network_Hooks/xdp_dma_hook.c:14:18:xdp_hook_install_vm	8	static
+firmware/Network_Hooks/xdp_dma_hook.c:19:6:xdp_hook_install_native	8	static
+firmware/Network_Hooks/xdp_dma_hook.c:24:6:xdp_hook_clear	8	static
+firmware/Network_Hooks/xdp_dma_hook.c:29:5:xdp_hook_run	8	static
+firmware/Network_Hooks/xdp_dma_hook.c:34:21:xdp_hook_get_stats	0	static
+firmware/Network_Hooks/xdp_dma_hook.c:39:20:xdp_hook_filter_kind	0	static

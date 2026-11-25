@@ -35,6 +35,14 @@ The original branch contains the complete Ethernet/QEMU implementation plus a Wi
 
 Import details are also recorded in `IMPORT_PROVENANCE.md`.
 
+Kiran's Linux/XDP filter implementations and experiment code are preserved as a dedicated reference snapshot at:
+
+```text
+stm32/reference/kiran_filter_work/
+```
+
+Start with its `README.md`, then inspect the CMS, ElasticSketch and RAPID implementations under its `ebpf/` directory. Keep new STM32 implementation work in `stm32/firmware/`; the reference snapshot should remain unchanged so results can be compared against the original designs.
+
 ## 3. Current state
 
 The project currently provides:

@@ -1,0 +1,68 @@
+{
+  "description": "RAPID SSN and switch-port map for the airport namespace topology",
+  "switches": [
+    {
+      "name": "terminal-switch",
+      "subnet": "10.10.0.0/24",
+      "ports": [
+        {
+          "name": "apoc",
+          "interface": "v_apoc_br",
+          "kind": "edge",
+          "trusted": true
+        },
+        {
+          "name": "attacker",
+          "interface": "v_att_br",
+          "kind": "edge"
+        },
+        {
+          "name": "guard",
+          "interface": "v_gterm_br",
+          "kind": "transit",
+          "peer_switch": "camera-switch",
+          "peer_port": "guard",
+          "meter_rate": "10mbit"
+        }
+      ]
+    },
+    {
+      "name": "camera-switch",
+      "subnet": "10.20.0.0/24",
+      "ports": [
+        {
+          "name": "guard",
+          "interface": "v_gcam_br",
+          "kind": "transit",
+          "peer_switch": "terminal-switch",
+          "peer_port": "guard",
+          "meter_rate": "10mbit"
+        },
+        {
+          "name": "camera1",
+          "interface": "v_cam1_br",
+          "kind": "edge",
+          "trusted": true
+        },
+        {
+          "name": "camera2",
+          "interface": "v_cam2_br",
+          "kind": "edge",
+          "trusted": true
+        },
+        {
+          "name": "camera3",
+          "interface": "v_cam3_br",
+          "kind": "edge",
+          "trusted": true
+        },
+        {
+          "name": "camera4",
+          "interface": "v_cam4_br",
+          "kind": "edge",
+          "trusted": true
+        }
+      ]
+    }
+  ]
+}

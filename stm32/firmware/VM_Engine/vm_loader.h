@@ -32,7 +32,9 @@
  * What it does NOT check: WHO sent the message. The verifier makes a
  * loaded program safe; authenticating the sender is future work.
  *
- * No heap: each loader is one static struct (2 x 4 KB instruction buffers).
+ * No heap: each loader is one static struct. With the embedded default of
+ * VM_MAX_INSNS=64, its two instruction buffers consume 2 x 512 B = 1 KB.
+ * Builds may override VM_MAX_INSNS, and the message/storage bounds follow it.
  */
 
 #include <stdint.h>

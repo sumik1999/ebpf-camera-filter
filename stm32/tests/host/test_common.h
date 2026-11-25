@@ -64,5 +64,6 @@ void test_hooks(void);       /* test_hooks.c */
 void test_native(void);      /* test_native.c */
 void test_exp_configs(void); /* test_hooks.c */
 void test_loader(void);      /* test_loader.c */
+void test_packet_parser(void); /* test_packet_parser.c */
 
 #endif /* TEST_COMMON_H */

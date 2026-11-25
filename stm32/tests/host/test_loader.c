@@ -78,6 +78,23 @@ void test_loader(void)
           s_captured->insns[0].src_reg == 5 && s_captured->insns[0].offset == -2 &&
           s_captured->insns[0].imm == 0x12345678, "bytes 13 53 FE FF 78 56 34 12 decode as in ISA.md");
 
+    /* Embedded storage boundary: one instruction and exactly VM_MAX_INSNS
+     * fit; one more is rejected before any body access. */
+    static vm_insn_t boundary[VM_MAX_INSNS];
+    boundary[0] = (vm_insn_t){ VM_OP_RET, 0, 0, 0, VM_VERDICT_PASS };
+    n = make_msg(m, boundary, 1, VM_CTX_ETH);
+    CHECK(vm_loader_load(&ld_cap, m, n, NULL, NULL) == VM_LOAD_OK &&
+          s_captured->n_insns == 1, "loader accepts a one-instruction program");
+    for (uint32_t i = 0; i < VM_MAX_INSNS; i++)
+        boundary[i] = (vm_insn_t){ VM_OP_MOV_K, 1, 0, 0, 0 };
+    boundary[VM_MAX_INSNS - 1u] = (vm_insn_t){ VM_OP_RET, 0, 0, 0, VM_VERDICT_PASS };
+    n = make_msg(m, boundary, VM_MAX_INSNS, VM_CTX_ETH);
+    CHECK(vm_loader_load(&ld_cap, m, n, NULL, NULL) == VM_LOAD_OK &&
+          s_captured->n_insns == VM_MAX_INSNS,
+          "loader accepts exactly VM_MAX_INSNS instructions");
+    CHECK(sizeof(ld_cap.insns) == 2u * VM_MAX_INSNS * sizeof(vm_insn_t),
+          "loader has exactly two bounded instruction banks");
+
     /* Install through the real hooks. */
     xdp_hook_init();
     lwip_ip4_hook_init();
@@ -94,7 +111,7 @@ void test_loader(void)
     struct { const char *what; vm_load_result_t want; } bad[] = {
         { "short message", VM_LOAD_ERR_SHORT }, { "bad magic", VM_LOAD_ERR_MAGIC },
         { "ISA version 2", VM_LOAD_ERR_VERSION }, { "IPv4 program to the ETH loader", VM_LOAD_ERR_CTX },
-        { "zero instructions", VM_LOAD_ERR_LENGTH }, { "513 instructions", VM_LOAD_ERR_LENGTH },
+        { "zero instructions", VM_LOAD_ERR_LENGTH }, { "VM_MAX_INSNS + 1", VM_LOAD_ERR_LENGTH },
         { "truncated by one byte", VM_LOAD_ERR_LENGTH }, { "one bit flipped", VM_LOAD_ERR_CRC },
     };
     for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) {
@@ -105,7 +122,11 @@ void test_loader(void)
         case 2: m[4] = 2; break;
         case 3: m[5] = VM_CTX_IPV4; break;
         case 4: m[6] = 0; m[7] = 0; break;
-        case 5: m[6] = (uint8_t)513; m[7] = (uint8_t)(513 >> 8); break;
+        case 5: {
+            uint32_t over = VM_MAX_INSNS + 1u;
+            m[6] = (uint8_t)over; m[7] = (uint8_t)(over >> 8);
+            break;
+        }
         case 6: len -= 1; break;
         case 7: m[VM_LOADER_HDR_LEN + 21] ^= 0x01; break;
         }

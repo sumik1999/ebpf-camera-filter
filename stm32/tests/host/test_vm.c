@@ -375,8 +375,8 @@ static void test_isa_v1_verifier_rules(void)
     big[VM_MAX_INSNS]      = (vm_insn_t){ VM_OP_RET, 0, 0, 0, VM_VERDICT_PASS };
     vm_program_t at_max = { big, (uint16_t)VM_MAX_INSNS, VM_CTX_ETH };
     vm_program_t over   = { big, (uint16_t)(VM_MAX_INSNS + 1u), VM_CTX_ETH };
-    CHECK(vm_verify(&at_max) == VM_VERIFY_OK, "V2: 512-instruction program accepted");
-    CHECK(vm_verify(&over) == VM_VERIFY_ERR_TOO_LONG, "V2: 513-instruction program rejected");
+    CHECK(vm_verify(&at_max) == VM_VERIFY_OK, "V2: VM_MAX_INSNS program accepted");
+    CHECK(vm_verify(&over) == VM_VERIFY_ERR_TOO_LONG, "V2: VM_MAX_INSNS + 1 rejected");
 
     /* V4: register bounds, also in fields the instruction does not use. */
     const vm_insn_t r7[]  = { { VM_OP_MOV_K, 7, 0, 0, 1 }, { VM_OP_RET, 0, 0, 0, 1 } };
@@ -811,6 +811,7 @@ int main(void)
     test_native();
     test_exp_configs();
     test_loader();
+    test_packet_parser();
 
     printf("\n%d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;

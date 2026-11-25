@@ -43,8 +43,22 @@ _Static_assert(sizeof(vm_insn_t) == 8, "vm_insn_t must be exactly 64 bits wide")
 #define VM_ISA_VERSION   1u
 
 #define VM_NUM_REGS      8u
-#define VM_MAX_INSNS     512u    /* hard cap enforced by the verifier   */
-#define VM_MAX_STEPS     2000u   /* runtime step budget (interpreter)   */
+
+/* Embedded builds use 64 instructions (512 bytes per bank) by default.
+ * A build may override this with -DVM_MAX_INSNS=N, but the verifier and
+ * loader always enforce the selected bound. */
+#ifndef VM_MAX_INSNS
+#define VM_MAX_INSNS     64u
+#endif
+
+#ifndef VM_MAX_STEPS
+#define VM_MAX_STEPS     2000u   /* runtime defence-in-depth budget */
+#endif
+
+_Static_assert(VM_MAX_INSNS >= 1u && VM_MAX_INSNS <= UINT16_MAX,
+               "VM_MAX_INSNS must fit in vm_program_t.n_insns");
+_Static_assert(VM_MAX_STEPS >= VM_MAX_INSNS,
+               "runtime step budget must cover every verified program");
 
 /* ---------------- Opcode classes (low 3 bits of opcode) ------ */
 #define VM_CLASS_MASK    0x07u

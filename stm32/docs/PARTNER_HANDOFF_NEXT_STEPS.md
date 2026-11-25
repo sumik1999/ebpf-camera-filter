@@ -177,7 +177,7 @@ Initial allocation proposal:
 | Two 64-instruction VM banks | 1,024 B |
 | Total | approximately 2.5–3.5 KB |
 
-The current loader supports 512 instructions and reserves two 4 KB instruction banks per loader. The embedded default should be reduced to 64 instructions, giving two 512-byte banks.
+The imported baseline supported 512 instructions and reserved two 4 KB instruction banks per loader. Milestone 1 changes this to a configurable limit with an embedded default of 64 instructions, giving two 512-byte banks.
 
 ## 7. Immediate implementation tasks
 
@@ -190,11 +190,13 @@ The current loader supports 512 instructions and reserves two 4 KB instruction b
 
 ### Step 2: reduce loader RAM
 
-1. Make the maximum instruction count configurable.
-2. Use an embedded default of 64 instructions.
-3. Keep all loader length and overflow checks.
-4. Add boundary tests for 0, 1, 64 and 65 instructions.
-5. Confirm that failed loads preserve the active program.
+Milestone 1 implementation is complete on the local development branch:
+
+1. The maximum instruction count is configurable.
+2. The embedded default is 64 instructions.
+3. Loader length and overflow checks remain enforced.
+4. Boundary tests cover 0, 1, 64 and 65 instructions.
+5. Failed loads preserve the active program.
 
 ### Step 3: implement `packet_meta_t`
 

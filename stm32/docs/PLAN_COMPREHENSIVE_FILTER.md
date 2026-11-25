@@ -51,7 +51,7 @@ Target less than 4 KB RAM for the active filter, excluding existing Ethernet/lwI
 | Parser/classifier working state | stack only, target <256 B |
 | Total target | approximately 2.5–3.5 KB |
 
-Reduce `VM_MAX_INSNS` from 512 to a configurable embedded default of 64. The current loader reserves 8 KB per hook; 64 instructions require only 1 KB for two banks. Keep a larger test-only limit if needed.
+Milestone 1 reduces `VM_MAX_INSNS` from 512 to a configurable embedded default of 64. The imported loader reserved 8 KB per hook; 64 instructions require only 1 KB for two banks. A larger test-only limit can still be selected at build time.
 
 Use saturating 16/32-bit counters and tick-based arithmetic. Avoid per-bucket 64-bit timestamps, floating point, division, and dynamic allocation in the receive path.
 
@@ -153,8 +153,10 @@ A packet must use one generation from start to finish. The RX task reads the act
 
 ### M1 — Baseline and resource budget
 
-- Make imported tests path-independent and keep all 209 checks green.
-- Add a build-time embedded VM instruction limit of 64.
+Status: **in progress locally**. The 64-instruction limit, 1 KB double banks, and boundary tests are implemented; target footprint recording and CI remain.
+
+- Keep all imported checks green while adding parser tests.
+- Use a build-time embedded VM instruction limit of 64.
 - Record `.text`, `.bss`, loader RAM, and stack before changes.
 - Add CI for host tests and sanitizers.
 

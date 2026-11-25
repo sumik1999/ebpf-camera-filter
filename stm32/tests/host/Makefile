@@ -5,9 +5,12 @@
 FW      := ../../firmware
 CC      ?= gcc
 CFLAGS  := -std=gnu11 -Wall -Wextra -Werror -O2 \
-           -I$(FW)/VM_Engine -I$(FW)/DDoS_Prototype -I$(FW)/Network_Hooks
-SRCS    := test_vm.c test_hooks.c test_native.c test_loader.c $(FW)/VM_Engine/vm_verifier.c $(FW)/VM_Engine/vm_interpreter.c \
+           -I$(FW)/VM_Engine -I$(FW)/DDoS_Prototype -I$(FW)/Network_Hooks \
+           -I$(FW)/Filter
+SRCS    := test_vm.c test_hooks.c test_native.c test_loader.c test_packet_parser.c \
+           $(FW)/VM_Engine/vm_verifier.c $(FW)/VM_Engine/vm_interpreter.c \
            $(FW)/VM_Engine/vm_slot.c $(FW)/VM_Engine/vm_loader.c \
+           $(FW)/Filter/packet_parser.c \
            $(FW)/Network_Hooks/xdp_dma_hook.c $(FW)/Network_Hooks/lwip_ip4_hook.c \
            $(FW)/DDoS_Prototype/ddos_native.c $(FW)/DDoS_Prototype/ddos_prototype_init.c
 

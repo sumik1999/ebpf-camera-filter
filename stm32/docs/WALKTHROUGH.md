@@ -58,7 +58,7 @@ _Static_assert(sizeof(vm_insn_t) == 8, "...");   /* line 38: the compiler refuse
 |---|---|---|
 | `VM_ISA_VERSION` | 1 | Version of this instruction set (frozen 28 Oct) |
 | `VM_NUM_REGS` | 8 | Registers r0–r7 |
-| `VM_MAX_INSNS` | 512 | Longest allowed program |
+| `VM_MAX_INSNS` | 64 by default | Longest allowed program; build-time configurable |
 | `VM_MAX_STEPS` | 2000 | Safety budget in the interpreter (can never be reached by a verified program) |
 
 ### 1.3 How opcodes are numbered (lines 50 onwards)
@@ -187,7 +187,7 @@ order, with the line in `vm_verifier.c`:
 | Rule | Check | Line | Error |
 |---|---|---|---|
 | V1 | program, instruction pointer and length are not NULL/0 | 72 | `ERR_EMPTY` |
-| V2 | at most 512 instructions | 75 | `ERR_TOO_LONG` |
+| V2 | at most `VM_MAX_INSNS` instructions (default 64) | 75 | `ERR_TOO_LONG` |
 | V3 | `ctx` is `VM_CTX_ETH` or `VM_CTX_IPV4` | 78 | `ERR_BAD_CTX` |
 | *for every instruction, top to bottom:* | | | |
 | V4 | opcode is one of the 33 known ones (`opcode_is_known`, line 8) | 87 | `ERR_BAD_OPCODE` |

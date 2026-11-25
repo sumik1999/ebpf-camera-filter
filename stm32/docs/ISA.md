@@ -137,7 +137,7 @@ so a forgotten field is caught.
 | Limit | Value | Where |
 |---|---|---|
 | Registers | 8 × 32 bit | `VM_NUM_REGS` |
-| Program length | 1 to 512 instructions (up to 4 KB) | `VM_MAX_INSNS`, verifier |
+| Program length | 1 to `VM_MAX_INSNS` (embedded default: 64 instructions / 512 B) | Configurable build-time bound, verifier |
 | Run-time step budget | 2000 steps | `VM_MAX_STEPS`, interpreter |
 | Instruction size | 8 bytes | `vm_insn_t` |
 
@@ -151,7 +151,7 @@ check.
 | Rule | Check | Error code |
 |---|---|---|
 | V1 | program pointer, `insns` and `n_insns` are non-zero | `VM_VERIFY_ERR_EMPTY` |
-| V2 | `n_insns <= 512` | `VM_VERIFY_ERR_TOO_LONG` |
+| V2 | `n_insns <= VM_MAX_INSNS` (default 64) | `VM_VERIFY_ERR_TOO_LONG` |
 | V3 | `ctx` is `VM_CTX_ETH` or `VM_CTX_IPV4` (checked after V1 and V2) | `VM_VERIFY_ERR_BAD_CTX` |
 | V4 | every opcode is one of the 33 in §4 | `VM_VERIFY_ERR_BAD_OPCODE` |
 | V5 | every `dst` and `src` is `< 8` (also in fields the opcode doesn't use) | `VM_VERIFY_ERR_BAD_REG` |
@@ -178,7 +178,7 @@ The interpreter (`vm_interpreter_run()`) checks, and returns DROP on failure:
 
 **Termination (proof sketch).** For a verified program, every instruction moves `pc` strictly
 forward: non-branches go to `pc + 1`, and branches go to a target `> pc` (V8). So each instruction
-runs at most once, and a run takes at most `n_insns <= 512` steps. The last instruction is `RET`
+runs at most once, and a run takes at most `n_insns <= VM_MAX_INSNS` steps (64 by default). The last instruction is `RET`
 (V10), and every branch target is inside the program (V9), so execution can't fall off the end. The
 2000-step budget can therefore **never** trigger for a verified program. It is kept only as
 defence in depth (KNOWN_ISSUES D12).

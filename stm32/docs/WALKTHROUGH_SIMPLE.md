@@ -70,7 +70,7 @@ two hooks see the packet from different starting points.
 
 ### 2.3 The verifier (`vm_verifier.c`)
 It runs **once, at install time**, and checks rules V1–V10:
-- the program is not empty and has at most 512 instructions;
+- the program is not empty and has at most `VM_MAX_INSNS` instructions (64 by default);
 - `ctx` is valid (which hook the program is for);
 - every opcode is known and every register is < 8;
 - fields an instruction doesn't use must be 0;
@@ -281,7 +281,7 @@ descriptors.
 | interpreter | 1064 B |
 | verifier | 765 B |
 | slot | 273 B |
-| loader | 797 B (+ 2 × 4 KB RAM buffers per hook) |
+| loader | 797 B code in the recorded baseline; current default uses 2 × 512 B RAM buffers per hook |
 | **VM engine total** | **2,899 B** |
 | each hook | 212 B |
 | native filter | 88 B |
@@ -333,7 +333,7 @@ holds a buffer.
 1. **Why a VM instead of native C?** A program can be replaced at run time as data, and the verifier
    proves it terminates and cannot write memory. The cost is about 195 extra instructions per frame
    in our measurement.
-2. **How is termination guaranteed?** Forward-only jumps, at most 512 instructions, and the last
+2. **How is termination guaranteed?** Forward-only jumps, at most `VM_MAX_INSNS` instructions (64 by default), and the last
    instruction must be `RET`.
 3. **How is memory safety guaranteed?** There are no store instructions; register numbers are checked
    by the verifier; every packet load is bounds-checked at run time; any fault returns DROP.

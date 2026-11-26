@@ -15,6 +15,7 @@ SRCS    := test_vm.c test_hooks.c test_native.c test_loader.c test_packet_parser
            $(FW)/Filter/filter_policy.c $(FW)/Filter/ingress_filter.c \
            $(FW)/Filter/rate_limit.c $(FW)/Filter/filter_crypto.c \
            $(FW)/Filter/filter_manager.c $(FW)/Filter/filter_management_task.c \
+           $(FW)/Filter/filter_freertos.c \
            $(FW)/Network_Hooks/xdp_dma_hook.c $(FW)/Network_Hooks/lwip_ip4_hook.c \
            $(FW)/DDoS_Prototype/ddos_native.c $(FW)/DDoS_Prototype/ddos_prototype_init.c
 

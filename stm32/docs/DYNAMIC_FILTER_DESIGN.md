@@ -74,7 +74,7 @@ The built-in recovery program remains in flash. Rollback swaps active and previo
 
 ## Management task
 
-`filter_management_task_t` provides a fixed two-message queue and FreeRTOS-compatible task entry. Submission copies a complete package in task context. HMAC, decoding and verification run in the management task, never in the ISR or packet RX path. The board must supply critical-section and idle/delay callbacks.
+`filter_management_task_t` provides a fixed two-message queue and FreeRTOS-compatible task entry. Submission copies a complete package in task context. HMAC, decoding and verification run in the management task, never in the ISR or packet RX path. `filter_freertos.[ch]` supplies `taskENTER_CRITICAL`, `taskEXIT_CRITICAL`, delay, and `xTaskCreate` adapters when `FILTER_USE_FREERTOS` is defined.
 
 ## Rate helpers
 
@@ -89,7 +89,7 @@ The VM can only call helper IDs allowed by both the authenticated package and ex
 ## Remaining board integration
 
 - provision and protect the HMAC key;
-- wire FreeRTOS critical callbacks and create the management task;
+- invoke the provided FreeRTOS adapter from board startup;
 - feed complete FMV2 messages from an authenticated control transport;
 - add persistent flash generations if updates must survive reboot;
 - select metadata dispatch in `xdp_hook_run()` behind an experiment/build mode;

@@ -121,8 +121,8 @@ rate burst/refill/tick wrap, and native/VM differential parity.
 ## Not implemented yet
 
 - connection of `filter_manager_run()` to `xdp_hook_run()`;
-- concrete FreeRTOS `taskENTER_CRITICAL` / `taskEXIT_CRITICAL` callback wiring;
-- creation of the management task with `xTaskCreate` in board firmware;
+- invocation of the provided `filter_freertos_*` adapter from the board application;
+- board-specific management transport feeding FMV2 packages into the created task;
 - persistent flash A/B configuration across reboot;
 - secure provisioning/storage of the HMAC key;
 - strict ARP field validation;

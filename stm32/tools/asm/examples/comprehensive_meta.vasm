@@ -1,0 +1,40 @@
+; ISA-v2 metadata policy matching firmware/Filter/meta_filter_bytecode.h.
+; Metadata offsets are defined by vm_meta_abi.h. Helper 1 is RATE_SERVICE.
+ctx meta
+ldb r1, [r0+1]
+jne r1, 0, +33
+ldb r1, [r0+0]
+jne r1, 1, +31
+ldb r1, [r0+6]
+jne r1, 0, +29
+ldb r1, [r0+7]
+jeq r1, 0, +3
+ldh r1, [r0+12]
+jeq r1, 100, +1
+jmp +24
+ldb r1, [r0+2]
+jeq r1, 1, +23
+jne r1, 2, +21
+ldb r2, [r0+4]
+jeq r2, 1, +20
+jeq r2, 17, +2
+jeq r2, 6, +9
+jmp +16
+ldb r3, [r0+8]
+jne r3, 1, +14
+ldh r3, [r0+16]
+jne r3, 53, +12
+mov r1, 0
+call 1
+jeq r0, 0, +9
+jmp +9
+ldb r3, [r0+8]
+jne r3, 1, +6
+ldh r3, [r0+16]
+jne r3, 443, +4
+mov r1, 1
+call 1
+jeq r0, 0, +1
+jmp +1
+ret 0
+ret 1

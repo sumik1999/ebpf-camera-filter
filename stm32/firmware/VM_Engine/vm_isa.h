@@ -40,7 +40,9 @@ _Static_assert(sizeof(vm_insn_t) == 8, "vm_insn_t must be exactly 64 bits wide")
 /* ISA version (docs/ISA.md). v1 frozen 28 Oct 2026: any change to the
  * encoding or semantics is a new version, with ISA.md, code and tests
  * changed in the same commit. */
-#define VM_ISA_VERSION   1u
+#define VM_ISA_VERSION_V1 1u
+#define VM_ISA_VERSION_V2 2u
+#define VM_ISA_VERSION    VM_ISA_VERSION_V2
 
 #define VM_NUM_REGS      8u
 
@@ -69,9 +71,8 @@ _Static_assert(VM_MAX_STEPS >= VM_MAX_INSNS,
 #define VM_CLASS_JMP_X   0x04u   /* branch,src operand = reg   */
 #define VM_CLASS_RET     0x05u   /* return / exit              */
 #define VM_CLASS_MISC    0x06u   /* mov / load-immediate       */
-#define VM_CLASS_RESERVED 0x07u  /* reserved for ISA v2 extensions (e.g. a stateful
-                                    counter map, a scratch stack); the verifier
-                                    rejects every opcode in this class          */
+#define VM_CLASS_CALL    0x07u   /* ISA v2 bounded native helper call */
+#define VM_CLASS_RESERVED VM_CLASS_CALL /* source compatibility with ISA-v1 tests */
 
 /* ---------------- Full opcodes = (op_within_class << 3) | class --- */
 
@@ -136,6 +137,16 @@ _Static_assert(VM_MAX_STEPS >= VM_MAX_INSNS,
 /* Return / exit: verdict = imm (0 = DROP, 1 = PASS). Ends the program. */
 #define VM_OP_RET    ((0u << 3) | VM_CLASS_RET)
 
+/* ISA v2 helper call. imm is a bounded helper ID, arguments are in r1-r3,
+ * and the helper result is written to r0. */
+#define VM_OP_CALL   ((0u << 3) | VM_CLASS_CALL)
+
+#define VM_HELPER_RATE_GLOBAL  0u
+#define VM_HELPER_RATE_SERVICE 1u
+#define VM_HELPER_RATE_SOURCE  2u
+#define VM_HELPER_COUNT        3u
+#define VM_HELPER_BIT(id)      (1u << (id))
+
 /* ---------------- Verdicts ------------------------------------ */
 #define VM_VERDICT_DROP   0
 #define VM_VERDICT_PASS   1
@@ -147,12 +158,13 @@ _Static_assert(VM_MAX_STEPS >= VM_MAX_INSNS,
  * 0 is deliberately invalid so a forgotten field is caught.        */
 #define VM_CTX_ETH    1u   /* Ethernet frame: pkt[0] = destination MAC (driver hook)  */
 #define VM_CTX_IPV4   2u   /* IPv4 packet:    pkt[0] = IPv4 header     (lwIP hook)    */
+#define VM_CTX_META   3u   /* Canonical VM_META_ABI context (ISA v2)                  */
 
 /* ---------------- VM program container ------------------------- */
 typedef struct {
     const vm_insn_t *insns;
     uint16_t         n_insns;
-    uint8_t          ctx;      /* VM_CTX_ETH or VM_CTX_IPV4 */
+    uint8_t          ctx;      /* VM_CTX_ETH / VM_CTX_IPV4 / VM_CTX_META */
 } vm_program_t;
 
 #ifdef __cplusplus

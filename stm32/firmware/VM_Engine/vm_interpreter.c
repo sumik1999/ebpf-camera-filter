@@ -29,12 +29,13 @@ static inline int vm_finish(vm_run_stats_t *out, vm_run_stats_t *st,
     return verdict;
 }
 
-int vm_interpreter_run(const vm_program_t *prog,
-                        const uint8_t *pkt_data,
-                        uint32_t pkt_len,
-                        vm_run_stats_t *stats)
+int vm_interpreter_run_ex(const vm_program_t *prog,
+                          const uint8_t *pkt_data,
+                          uint32_t pkt_len,
+                          const vm_exec_env_t *env,
+                          vm_run_stats_t *stats)
 {
-    vm_run_stats_t local_stats = {0, 0, 0};
+    vm_run_stats_t local_stats = {0, 0, 0, 0};
     vm_regs_t regs;
     /* ISA: all registers start at 0. Written as 8 explicit stores because
      * `regs = {{0}}` made GCC call memset(), and newlib-nano's memset copies
@@ -142,6 +143,23 @@ int vm_interpreter_run(const vm_program_t *prog,
         case VM_OP_JLT_X: if (regs.r[ins.dst_reg] <  regs.r[ins.src_reg]) next_pc = (uint16_t)(pc + 1 + ins.offset); break;
         case VM_OP_JLE_X: if (regs.r[ins.dst_reg] <= regs.r[ins.src_reg]) next_pc = (uint16_t)(pc + 1 + ins.offset); break;
 
+        /* ---------------- bounded native helper -------------------------- */
+        case VM_OP_CALL: {
+            uint32_t helper = (uint32_t)ins.imm;
+            int ok = 0;
+            if (env == NULL || env->call == NULL || helper >= VM_HELPER_COUNT ||
+                (env->helper_mask & VM_HELPER_BIT(helper)) == 0u) {
+                local_stats.aborted_helper++;
+                return vm_finish(stats, &local_stats, steps, VM_VERDICT_DROP);
+            }
+            regs.r[0] = env->call(env->opaque, helper, regs.r, &ok);
+            if (!ok) {
+                local_stats.aborted_helper++;
+                return vm_finish(stats, &local_stats, steps, VM_VERDICT_DROP);
+            }
+            break;
+        }
+
         /* ---------------- exit ------------------------------------------- */
         case VM_OP_RET:
             return vm_finish(stats, &local_stats, steps,
@@ -155,4 +173,12 @@ int vm_interpreter_run(const vm_program_t *prog,
 
         pc = next_pc;
     }
+}
+
+int vm_interpreter_run(const vm_program_t *prog,
+                       const uint8_t *pkt_data,
+                       uint32_t pkt_len,
+                       vm_run_stats_t *stats)
+{
+    return vm_interpreter_run_ex(prog, pkt_data, pkt_len, NULL, stats);
 }

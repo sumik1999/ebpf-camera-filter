@@ -13,7 +13,17 @@ typedef struct {
                                  a load that faulted; VM_MAX_STEPS on a budget stop */
     uint32_t aborted_oob;     /* aborted: out-of-bounds packet access      */
     uint32_t aborted_budget;  /* aborted: VM_MAX_STEPS step budget exceeded */
+    uint32_t aborted_helper;  /* aborted: helper unavailable/refused          */
 } vm_run_stats_t;
+
+typedef uint32_t (*vm_helper_call_fn)(void *opaque, uint32_t helper_id,
+                                      const uint32_t regs[VM_NUM_REGS], int *ok);
+
+typedef struct {
+    vm_helper_call_fn call;
+    void *opaque;
+    uint32_t helper_mask;
+} vm_exec_env_t;
 
 /*
  * Execute a *verified* program (vm_verify() must have already
@@ -39,6 +49,14 @@ int vm_interpreter_run(const vm_program_t *prog,
                         const uint8_t *pkt_data,
                         uint32_t pkt_len,
                         vm_run_stats_t *stats /* optional, may be NULL */);
+
+/* ISA v2 execution with bounded native helpers. Legacy callers use the
+ * wrapper above, which supplies no helper environment. */
+int vm_interpreter_run_ex(const vm_program_t *prog,
+                          const uint8_t *ctx_data,
+                          uint32_t ctx_len,
+                          const vm_exec_env_t *env,
+                          vm_run_stats_t *stats);
 
 #ifdef __cplusplus
 }

@@ -191,19 +191,23 @@ Status: **native reference implemented locally, not connected to the hook**. Ser
 
 ### M5 — Programmable classifier
 
-- Introduce ISA v2 only if needed, preferably `VM_CTX_META` plus a class-return action.
-- Update verifier, interpreter, assembler, loader, and tests together.
-- Keep ISA v1 loading available or reject it explicitly with a clear version error.
+Status: **implemented locally, detached from the production hook.** ISA v2 adds `VM_CTX_META` and a bounded helper call. The canonical metadata policy is 37 instructions and matches the native reference over 10,007 differential inputs.
 
-**Done when:** programs can select policy classes but cannot bypass parser safety or mutate arbitrary memory.
+- `VM_CTX_META`, verifier, interpreter, assembler and tests are updated together.
+- ISA-v1 Ethernet/IPv4 programs and XVM1 loading remain supported.
+- Metadata programs cannot write memory; helper IDs and manifest capability masks are bounded.
+
+**Done when:** board integration executes the verified metadata program without bypassing parser safety.
 
 ### M6 — Secure live updates
 
-- Implement `XCFG2`, authentication, anti-replay sequence, A/B policy banks, generation/hash reporting, and rollback.
-- Remove or disable unauthenticated raw UDP/9000 updates in production builds.
-- Fuzz malformed update messages and test power-loss state transitions in simulation.
+Status: **RAM-only core implemented locally.** FMV2 uses HMAC-SHA256, device ID, monotonic generation, CRC, helper capabilities, three program banks, recovery and rollback. A bounded management-task queue keeps authentication and verification out of RX/ISR context.
 
-**Done when:** invalid updates never replace the active policy and replayed/unauthorized updates are rejected.
+- Unauthenticated UDP/9000 remains legacy simulation code and must be disabled in production.
+- Concrete FreeRTOS task/critical callback wiring and protected key provisioning remain.
+- Persistent flash slots and power-loss tests remain.
+
+**Done when:** invalid updates never replace the active policy and replayed/unauthorized updates are rejected on the board control path.
 
 ### M7 — Evaluation
 

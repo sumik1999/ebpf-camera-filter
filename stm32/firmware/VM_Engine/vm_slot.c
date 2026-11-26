@@ -30,6 +30,13 @@ vm_slot_result_t vm_slot_install(vm_slot_t *slot, const vm_program_t *prog,
     return VM_SLOT_OK;
 }
 
+void vm_slot_publish_verified(vm_slot_t *slot, const vm_program_t *prog)
+{
+    if (slot != NULL) {
+        slot->prog = prog;
+    }
+}
+
 void vm_slot_clear(vm_slot_t *slot)
 {
     if (slot != NULL) {

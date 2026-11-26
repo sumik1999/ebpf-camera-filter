@@ -324,7 +324,9 @@ static void test_isa_v1_encoding(void)
         vm_program_t prog = { p, 2, VM_CTX_ETH };
         vm_verify_result_t r = vm_verify(&prog);
         if (r == VM_VERIFY_OK) accepted++;
-        int ok = is_isa_v1_opcode(op) ? (r == VM_VERIFY_OK) : (r == VM_VERIFY_ERR_BAD_OPCODE);
+        int ok = is_isa_v1_opcode(op) ? (r == VM_VERIFY_OK) :
+                 (op == VM_OP_CALL ? (r == VM_VERIFY_ERR_BAD_HELPER) :
+                                     (r == VM_VERIFY_ERR_BAD_OPCODE));
         if (!ok) {
             misclassified++;
             printf("  opcode 0x%02X: verifier says %s\n", op, vm_verify_strerror(r));
@@ -333,16 +335,19 @@ static void test_isa_v1_encoding(void)
     CHECK(misclassified == 0, "all 256 opcode values accepted/rejected as ISA.md says");
     CHECK(accepted == 33u, "verifier accepts exactly 33 opcodes");
 
-    /* Q4: class 7 is reserved; all 32 of its opcodes are rejected. */
+    /* ISA v2 uses one class-7 encoding for metadata CALL; raw ISA-v1
+     * programs still reject the whole class. */
     unsigned reserved_rejected = 0;
     for (unsigned hi = 0; hi < 32u; hi++) {
         const vm_insn_t p[2] = { { (uint8_t)((hi << 3) | VM_CLASS_RESERVED), 0, 0, 0, 0 },
                                  { VM_OP_RET, 0, 0, 0, VM_VERDICT_PASS } };
         vm_program_t prog = { p, 2, VM_CTX_ETH };
-        if (vm_verify(&prog) == VM_VERIFY_ERR_BAD_OPCODE) reserved_rejected++;
+        vm_verify_result_t r = vm_verify(&prog);
+        if (r == VM_VERIFY_ERR_BAD_OPCODE || r == VM_VERIFY_ERR_BAD_HELPER) reserved_rejected++;
     }
-    CHECK(VM_CLASS_RESERVED == 7u && reserved_rejected == 32u, "reserved class 7: all 32 opcodes rejected (Q4)");
-    CHECK(VM_ISA_VERSION == 1u, "ISA version is 1");
+    CHECK(VM_CLASS_CALL == 7u && reserved_rejected == 32u,
+          "class 7 opcodes are unavailable to ISA-v1 Ethernet programs");
+    CHECK(VM_ISA_VERSION == VM_ISA_VERSION_V2, "current ISA version is 2");
 }
 
 static void test_isa_v1_verifier_rules(void)
@@ -355,11 +360,13 @@ static void test_isa_v1_verifier_rules(void)
     /* V3 (Q5): the program declares a known context; 0 (forgotten field) is invalid. */
     const vm_insn_t ok1[] = { { VM_OP_RET, 0, 0, 0, VM_VERDICT_PASS } };
     vm_program_t c_eth = { ok1, 1, VM_CTX_ETH }, c_ip = { ok1, 1, VM_CTX_IPV4 };
-    vm_program_t c_0 = { ok1, 1, 0 }, c_3 = { ok1, 1, 3 }, c_255 = { ok1, 1, 255 };
+    vm_program_t c_meta = { ok1, 1, VM_CTX_META };
+    vm_program_t c_0 = { ok1, 1, 0 }, c_255 = { ok1, 1, 255 };
     CHECK(vm_verify(&c_eth) == VM_VERIFY_OK, "V3: VM_CTX_ETH accepted");
     CHECK(vm_verify(&c_ip)  == VM_VERIFY_OK, "V3: VM_CTX_IPV4 accepted");
-    CHECK(vm_verify(&c_0) == VM_VERIFY_ERR_BAD_CTX && vm_verify(&c_3) == VM_VERIFY_ERR_BAD_CTX &&
-          vm_verify(&c_255) == VM_VERIFY_ERR_BAD_CTX, "V3: context 0, 3, 255 rejected");
+    CHECK(vm_verify(&c_meta) == VM_VERIFY_OK, "V3: VM_CTX_META accepted for ISA v2");
+    CHECK(vm_verify(&c_0) == VM_VERIFY_ERR_BAD_CTX &&
+          vm_verify(&c_255) == VM_VERIFY_ERR_BAD_CTX, "V3: context 0 and 255 rejected");
     CHECK(ddos_program_eth.ctx == VM_CTX_ETH && ddos_program_ip.ctx == VM_CTX_IPV4,
           "DDoS programs declare the hook they were written for");
     const vm_insn_t badop_noret[] = { { 0xFF, 0, 0, 0, 0 } };
@@ -813,6 +820,7 @@ int main(void)
     test_loader();
     test_packet_parser();
     test_ingress_filter();
+    test_dynamic_filter();
 
     printf("\n%d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;

@@ -110,7 +110,7 @@ void test_loader(void)
     /* Every bad message is refused and the running program stays. */
     struct { const char *what; vm_load_result_t want; } bad[] = {
         { "short message", VM_LOAD_ERR_SHORT }, { "bad magic", VM_LOAD_ERR_MAGIC },
-        { "ISA version 2", VM_LOAD_ERR_VERSION }, { "IPv4 program to the ETH loader", VM_LOAD_ERR_CTX },
+        { "ISA version 3", VM_LOAD_ERR_VERSION }, { "IPv4 program to the ETH loader", VM_LOAD_ERR_CTX },
         { "zero instructions", VM_LOAD_ERR_LENGTH }, { "VM_MAX_INSNS + 1", VM_LOAD_ERR_LENGTH },
         { "truncated by one byte", VM_LOAD_ERR_LENGTH }, { "one bit flipped", VM_LOAD_ERR_CRC },
     };
@@ -119,7 +119,7 @@ void test_loader(void)
         switch (i) {
         case 0: len = 11; break;
         case 1: m[0] = 'Y'; break;
-        case 2: m[4] = 2; break;
+        case 2: m[4] = 3; break;
         case 3: m[5] = VM_CTX_IPV4; break;
         case 4: m[6] = 0; m[7] = 0; break;
         case 5: {

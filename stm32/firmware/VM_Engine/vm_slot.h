@@ -59,6 +59,11 @@ void vm_slot_init(vm_slot_t *slot, uint8_t ctx);
 vm_slot_result_t vm_slot_install(vm_slot_t *slot, const vm_program_t *prog,
                                  vm_verify_result_t *why);
 
+/* Publish a program already checked by vm_verify() and a matching-context
+ * check. Intended for update managers that verify before a short RTOS
+ * critical section. */
+void vm_slot_publish_verified(vm_slot_t *slot, const vm_program_t *prog);
+
 /* Remove the program: the hook then passes every packet. */
 void vm_slot_clear(vm_slot_t *slot);
 

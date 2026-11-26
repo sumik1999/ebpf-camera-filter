@@ -24,7 +24,7 @@ static int opcode_is_known(uint8_t op)
     case VM_OP_JGE_X: case VM_OP_JLT_X: case VM_OP_JLE_X:
 
     case VM_OP_MOV_K: case VM_OP_MOV_X:
-    case VM_OP_RET:
+    case VM_OP_RET: case VM_OP_CALL:
         return 1;
     default:
         return 0;
@@ -52,7 +52,8 @@ static unsigned used_fields(uint8_t op)
     case VM_CLASS_JMP_K: return (op == VM_OP_JMP) ? FIELD_OFF : (FIELD_DST | FIELD_OFF | FIELD_IMM);
     case VM_CLASS_JMP_X: return FIELD_DST | FIELD_SRC | FIELD_OFF;
     case VM_CLASS_MISC:  return (op == VM_OP_MOV_K) ? (FIELD_DST | FIELD_IMM) : (FIELD_DST | FIELD_SRC);
-    default:             return FIELD_IMM;                       /* VM_CLASS_RET */
+    case VM_CLASS_RET:   return FIELD_IMM;
+    default:             return FIELD_IMM;                       /* VM_CLASS_CALL */
     }
 }
 
@@ -75,7 +76,7 @@ vm_verify_result_t vm_verify(const vm_program_t *prog)
     if (prog->n_insns > VM_MAX_INSNS) {
         return VM_VERIFY_ERR_TOO_LONG;
     }
-    if (prog->ctx != VM_CTX_ETH && prog->ctx != VM_CTX_IPV4) {
+    if (prog->ctx != VM_CTX_ETH && prog->ctx != VM_CTX_IPV4 && prog->ctx != VM_CTX_META) {
         return VM_VERIFY_ERR_BAD_CTX;
     }
 
@@ -96,6 +97,12 @@ vm_verify_result_t vm_verify(const vm_program_t *prog)
         if (ins->opcode == VM_OP_RET &&
             ins->imm != VM_VERDICT_DROP && ins->imm != VM_VERDICT_PASS) {
             return VM_VERIFY_ERR_BAD_RET;
+        }
+        if (ins->opcode == VM_OP_CALL) {
+            uint32_t helper = (uint32_t)ins->imm;
+            if (prog->ctx != VM_CTX_META || helper >= VM_HELPER_COUNT) {
+                return VM_VERIFY_ERR_BAD_HELPER;
+            }
         }
 
         if (is_branch_opcode(ins->opcode)) {
@@ -125,6 +132,19 @@ vm_verify_result_t vm_verify(const vm_program_t *prog)
     return VM_VERIFY_OK;
 }
 
+uint32_t vm_program_required_helpers(const vm_program_t *prog)
+{
+    uint32_t mask = 0u;
+    if (prog == NULL || prog->insns == NULL) return 0u;
+    for (uint16_t i = 0; i < prog->n_insns; i++) {
+        if (prog->insns[i].opcode == VM_OP_CALL &&
+            (uint32_t)prog->insns[i].imm < VM_HELPER_COUNT) {
+            mask |= VM_HELPER_BIT((uint32_t)prog->insns[i].imm);
+        }
+    }
+    return mask;
+}
+
 const char *vm_verify_strerror(vm_verify_result_t r)
 {
     switch (r) {
@@ -138,7 +158,9 @@ const char *vm_verify_strerror(vm_verify_result_t r)
     case VM_VERIFY_ERR_NO_RET:        return "program does not end in RET";
     case VM_VERIFY_ERR_UNUSED_FIELD:  return "field not used by this opcode is non-zero";
     case VM_VERIFY_ERR_BAD_RET:       return "RET value must be 0 (DROP) or 1 (PASS)";
-    case VM_VERIFY_ERR_BAD_CTX:       return "unknown program context (want VM_CTX_ETH or VM_CTX_IPV4)";
+    case VM_VERIFY_ERR_BAD_CTX:       return "unknown program context";
+    case VM_VERIFY_ERR_BAD_VERSION:   return "unsupported ISA/context version";
+    case VM_VERIFY_ERR_BAD_HELPER:    return "helper is unknown or not permitted";
     default:                          return "unknown verification error";
     }
 }

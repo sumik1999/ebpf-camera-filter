@@ -1,9 +1,8 @@
-# VM instruction set: ISA v1
+# VM instruction set: ISA v1 and v2
 
-**Status: frozen on 28 Oct 2026** (`VM_ISA_VERSION 1` in `vm_isa.h`). ISA v1 is the VM_Engine v0.1
-behaviour plus the decisions in §11. A change to the encoding or semantics is a **new ISA version**:
-bump `VM_ISA_VERSION` and change this document, the code and the host tests in the same commit.
-`tests/host/test_vm.c` checks every rule here (the `[ISA v1]` sections).
+**ISA v1** is the frozen raw-packet VM used by the Ethernet and IPv4 programs. **ISA v2** adds the
+`VM_CTX_META` context and one bounded helper-call opcode while preserving all v1 encodings and
+semantics. `tests/host/test_vm.c` and `test_dynamic_filter.c` check both versions.
 
 Source of truth: `vm_isa.h` (encoding, opcodes, limits), `vm_verifier.c` (static rules),
 `vm_interpreter.c` (run-time semantics). If this document and the code disagree, that is a bug: fix
@@ -63,9 +62,9 @@ byte order. The assembler (`tools/asm/`, planned) must follow this table, not th
 | `JMP_X` | 4 | branch, compare with register `src` |
 | `RET` | 5 | return a verdict |
 | `MISC` | 6 | moves |
-| `RESERVED` | 7 | reserved for future versions (Q4); every opcode in this class is rejected |
+| `CALL` | 7 | ISA-v2 bounded native helper call; other encodings in this class are rejected |
 
-## 4. Opcode table (33 opcodes)
+## 4. Opcode table (33 v1 opcodes plus ISA-v2 `CALL`)
 
 Notation: `R[x]` is register `x`. `IMM` is `imm` sign-extended to 32 bits and then read as an unsigned
 32-bit value (two's complement). All arithmetic is unsigned 32-bit and wraps modulo 2³².
@@ -92,9 +91,10 @@ Notation: `R[x]` is register `x`. `IMM` is `imm` sign-extended to 32 bits and th
 | 0x06 | `MOV_K` | `R[dst] = IMM` |
 | 0x0E | `MOV_X` | `R[dst] = R[src]` |
 | 0x05 | `RET` | stop; verdict = `imm`, which must be 0 (DROP) or 1 (PASS) |
+| 0x07 | `CALL` | ISA v2: invoke helper ID `imm`; arguments in r1-r3, result in r0 |
 
-There is no `JMP_X` with operation 0 (0x04 is not an opcode). The verifier accepts exactly these 33
-opcodes and rejects the other 223 (checked exhaustively by a host test).
+There is no `JMP_X` with operation 0 (0x04 is not an opcode). ISA-v1 raw-packet programs retain the
+original 33-opcode set. `CALL` is accepted only for `VM_CTX_META` with a known helper ID.
 
 ## 5. Semantics in detail
 
@@ -127,12 +127,13 @@ other field must be 0, so each program has exactly one binary form:
 | `Jcc_K` | `dst`, `offset`, `imm` | `src` |
 | `Jcc_X` | `dst`, `src`, `offset` | `imm` |
 | `RET` | `imm` | `dst`, `src`, `offset` |
+| ISA-v2 `CALL` | `imm` helper ID | `dst`, `src`, `offset` |
 
 ## 6. Programs and limits
 
 A program is `vm_program_t { const vm_insn_t *insns; uint16_t n_insns; uint8_t ctx; }`. `ctx` is the
-hook context the program was written for: `VM_CTX_ETH` (1) or `VM_CTX_IPV4` (2); see §9. 0 is invalid,
-so a forgotten field is caught.
+hook context the program was written for: `VM_CTX_ETH` (1), `VM_CTX_IPV4` (2), or ISA-v2
+`VM_CTX_META` (3); see §9. 0 is invalid, so a forgotten field is caught.
 
 | Limit | Value | Where |
 |---|---|---|
@@ -152,8 +153,8 @@ check.
 |---|---|---|
 | V1 | program pointer, `insns` and `n_insns` are non-zero | `VM_VERIFY_ERR_EMPTY` |
 | V2 | `n_insns <= VM_MAX_INSNS` (default 64) | `VM_VERIFY_ERR_TOO_LONG` |
-| V3 | `ctx` is `VM_CTX_ETH` or `VM_CTX_IPV4` (checked after V1 and V2) | `VM_VERIFY_ERR_BAD_CTX` |
-| V4 | every opcode is one of the 33 in §4 | `VM_VERIFY_ERR_BAD_OPCODE` |
+| V3 | `ctx` is `VM_CTX_ETH`, `VM_CTX_IPV4`, or `VM_CTX_META` | `VM_VERIFY_ERR_BAD_CTX` |
+| V4 | every opcode is known; `CALL` is restricted to `VM_CTX_META` and a bounded helper ID | `VM_VERIFY_ERR_BAD_OPCODE` / `VM_VERIFY_ERR_BAD_HELPER` |
 | V5 | every `dst` and `src` is `< 8` (also in fields the opcode doesn't use) | `VM_VERIFY_ERR_BAD_REG` |
 | V6 | every field the opcode does not use is 0 (§5) | `VM_VERIFY_ERR_UNUSED_FIELD` |
 | V7 | every `RET` has `imm` 0 or 1 | `VM_VERIFY_ERR_BAD_RET` |
@@ -175,6 +176,7 @@ The interpreter (`vm_interpreter_run()`) checks, and returns DROP on failure:
 | more than 2000 steps | every step | `aborted_budget` |
 | packet load out of bounds | every load | `aborted_oob` |
 | unknown opcode | every step | `aborted_oob` |
+| unavailable or refused helper | ISA-v2 `CALL` | `aborted_helper` |
 
 **Termination (proof sketch).** For a verified program, every instruction moves `pc` strictly
 forward: non-branches go to `pc + 1`, and branches go to a target `> pc` (V8). So each instruction
@@ -204,6 +206,7 @@ compiler.
 |---|---|---|---|
 | Driver hook (`HAL_ETH_RxLinkCallback`, C3/C4) | first byte of the **Ethernet frame** (destination MAC) | `VM_CTX_ETH` | `ddos_program_eth` |
 | lwIP hook (`ip4_input()`, C1/C2) | first byte of the **IPv4 header** | `VM_CTX_IPV4` | `ddos_program_ip` |
+| Metadata manager (staged, not connected to driver hook yet) | canonical 32-byte `VM_META_ABI_VERSION=1` buffer | `VM_CTX_META` | `meta_filter_program` |
 
 The two variants implement the same logic with offsets that differ by 14 bytes. Each declares its
 `ctx` (Q5). The verifier checks that `ctx` is a known value. **Each hook's install function must also
@@ -231,6 +234,6 @@ All six recommendations were accepted.
 | Q1 | Should the verifier require **unused fields to be zero** (canonical encoding)? | **Decided 28 Oct 2026: yes.** Implemented as rule V6 (§5, §7). |
 | Q2 | Should the verifier **reject `RET` with `imm` other than 0 or 1**? | **Decided 28 Oct 2026: yes.** Implemented as rule V7 (§5, §7). |
 | Q3 | Should the interpreter also **mask register indices** (`& 7`) at run time? | **No.** Rely on verify-on-install (D9), as eBPF does, and keep the per-instruction cost down (§8, `vm_interpreter.h`). |
-| Q4 | **Reserve class 7** for future extensions (the stateful counter map for rate limiting in Feb; an optional scratch stack for G2)? | **Yes.** `VM_CLASS_RESERVED` (7) is defined in `vm_isa.h`; the verifier rejects all 32 of its opcodes. Using it means ISA v2. |
+| Q4 | **Reserve class 7** for future extensions? | **Used by ISA v2.** Class 7 now contains `VM_OP_CALL`, permitted only for metadata programs and bounded helper IDs. Other class-7 encodings remain invalid. |
 | Q5 | Should a program **declare its hook context** (Ethernet frame vs IP packet), so installing it on the wrong hook is refused? | **Decided 28 Oct 2026: yes.** `vm_program_t.ctx` plus verifier rule V3 are implemented. The hook-match check comes with D9 (plan 3.2). |
 | Q6 | Add **signed comparisons**? | **No.** Packet header fields are unsigned; all compares stay unsigned (§5). |

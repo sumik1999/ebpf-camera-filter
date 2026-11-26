@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""bcgen.py -- a minimal assembler for the VM's ISA v1 (docs/ISA.md).
+"""bcgen.py -- minimal assembler for VM ISA v1/v2 (docs/ISA.md).
 
 Turns a readable program into an XVM1 message (the format vm_loader.c
 accepts), so new filter rules can be sent to a running device as data.
 
 Syntax (one instruction per line, ';' starts a comment):
-    ctx eth | ipv4                 which hook the program is for (first line)
+    ctx eth | ipv4 | meta          program context (meta selects ISA v2)
     ldb|ldh|ldw rD, [rS+off]       packet load, 1/2/4 bytes, big-endian
     add|sub|and|or|xor|lsh|rsh rD, imm | rS
     mov rD, imm | rS
     jmp +off
     jeq|jne|jgt|jge|jlt|jle rD, imm | rS, +off     jump to pc+1+off if true
-    ret 0 | 1                      0 = DROP, 1 = PASS
+    call helper_id                  ISA-v2 bounded helper, result in r0
+    ret 0 | 1                       0 = DROP, 1 = PASS
 
 Usage:
     bcgen.py prog.vasm -o prog.xvm     write the message
@@ -23,9 +24,10 @@ import struct
 import sys
 import zlib
 
-ISA_VERSION = 1
-CTX = {"eth": 1, "ipv4": 2}
-CLASS = {"ld": 0, "alu_k": 1, "alu_x": 2, "jmp_k": 3, "jmp_x": 4, "ret": 5, "misc": 6}
+ISA_V1 = 1
+ISA_V2 = 2
+CTX = {"eth": 1, "ipv4": 2, "meta": 3}
+CLASS = {"ld": 0, "alu_k": 1, "alu_x": 2, "jmp_k": 3, "jmp_x": 4, "ret": 5, "misc": 6, "call": 7}
 LOADS = {"ldb": 0, "ldh": 1, "ldw": 2}
 ALU = {"add": 0, "sub": 1, "and": 2, "or": 3, "xor": 4, "lsh": 5, "rsh": 6}
 JMP = {"jmp": 0, "jeq": 1, "jne": 2, "jgt": 3, "jge": 4, "jlt": 5, "jle": 6}
@@ -85,6 +87,10 @@ def assemble(text):
                     out += encode(op(JMP[mn], "jmp_x"), reg(args[0]), reg(args[1]), num(args[2]))
                 else:
                     out += encode(op(JMP[mn], "jmp_k"), reg(args[0]), offset=num(args[2]), imm=num(args[1]))
+            elif mn == "call":
+                if ctx != CTX["meta"]:
+                    raise ValueError("call is only valid with 'ctx meta'")
+                out += encode(op(0, "call"), imm=num(args[0]))
             elif mn == "ret":
                 out += encode(op(0, "ret"), imm=num(args[0]))
             else:
@@ -92,13 +98,14 @@ def assemble(text):
         except (ValueError, IndexError, KeyError) as e:
             raise SystemExit(f"line {lineno}: {raw.strip()}: {e}")
     if ctx is None:
-        raise SystemExit("missing 'ctx eth' or 'ctx ipv4'")
+        raise SystemExit("missing 'ctx eth', 'ctx ipv4', or 'ctx meta'")
     return ctx, out
 
 
 def message(ctx, body):
-    """XVM1 header (magic, version, ctx, count, CRC-32) + instructions."""
-    return b"XVM1" + struct.pack("<BBHI", ISA_VERSION, ctx, len(body) // 8, zlib.crc32(body)) + body
+    """XVM1 header (magic, ISA version, ctx, count, CRC-32) + instructions."""
+    version = ISA_V2 if ctx == CTX["meta"] else ISA_V1
+    return b"XVM1" + struct.pack("<BBHI", version, ctx, len(body) // 8, zlib.crc32(body)) + body
 
 
 DDOS_ETH = """ctx eth

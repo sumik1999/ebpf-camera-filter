@@ -9,8 +9,8 @@
  *
  *   offset  size  field
  *   0       4     magic "XVM1"
- *   4       1     ISA version (must be VM_ISA_VERSION)
- *   5       1     ctx: VM_CTX_ETH (driver hook) or VM_CTX_IPV4 (lwIP hook)
+ *   4       1     ISA version (v1 or v2)
+ *   5       1     ctx: VM_CTX_ETH, VM_CTX_IPV4, or ISA-v2 VM_CTX_META
  *   6       2     n_insns (1 .. VM_MAX_INSNS)
  *   8       4     CRC-32 (IEEE, as zlib.crc32) of the instruction bytes
  *   12      8*n   the instructions, 8 bytes each, as in docs/ISA.md §3
@@ -29,8 +29,9 @@
  * the RTOS the loader runs in tcpip_thread, below the RX task's priority,
  * so the RX task never sees a program being overwritten mid-packet.)
  *
- * What it does NOT check: WHO sent the message. The verifier makes a
- * loaded program safe; authenticating the sender is future work.
+ * XVM1 does NOT authenticate the sender and carries no helper capabilities.
+ * It remains the legacy loader. Deployable metadata updates use the signed/
+ * authenticated FMV2 envelope handled by filter_manager instead.
  *
  * No heap: each loader is one static struct. With the embedded default of
  * VM_MAX_INSNS=64, its two instruction buffers consume 2 x 512 B = 1 KB.

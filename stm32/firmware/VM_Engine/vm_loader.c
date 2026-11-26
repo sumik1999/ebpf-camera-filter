@@ -38,10 +38,12 @@ vm_load_result_t vm_loader_load(vm_loader_t *ld, const uint8_t *msg, uint32_t le
     if (ld == NULL || ld->install == (vm_install_fn)0 || msg == NULL || len < VM_LOADER_HDR_LEN)
         return VM_LOAD_ERR_SHORT;
     if (msg[0] != 'X' || msg[1] != 'V' || msg[2] != 'M' || msg[3] != '1') return VM_LOAD_ERR_MAGIC;
-    if (msg[4] != VM_ISA_VERSION) return VM_LOAD_ERR_VERSION;
+    uint8_t isa = msg[4];
+    if (isa != VM_ISA_VERSION_V1 && isa != VM_ISA_VERSION_V2) return VM_LOAD_ERR_VERSION;
 
     uint8_t ctx = msg[5];
     if (ctx != ld->ctx) return VM_LOAD_ERR_CTX;   /* (the slot checks again) */
+    if (ctx == VM_CTX_META && isa != VM_ISA_VERSION_V2) return VM_LOAD_ERR_VERSION;
 
     uint32_t n = le16(msg + 6);
     if (n == 0u || n > VM_MAX_INSNS || len != VM_LOADER_HDR_LEN + 8u * n) return VM_LOAD_ERR_LENGTH;

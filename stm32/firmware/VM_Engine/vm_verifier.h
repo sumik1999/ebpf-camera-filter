@@ -19,7 +19,9 @@ typedef enum {
     VM_VERIFY_ERR_NO_RET,
     VM_VERIFY_ERR_UNUSED_FIELD,     /* ISA v1: a field the opcode does not use is non-zero */
     VM_VERIFY_ERR_BAD_RET,          /* ISA v1: RET value is not VM_VERDICT_DROP/PASS       */
-    VM_VERIFY_ERR_BAD_CTX,          /* ISA v1: ctx is not VM_CTX_ETH or VM_CTX_IPV4        */
+    VM_VERIFY_ERR_BAD_CTX,
+    VM_VERIFY_ERR_BAD_VERSION,
+    VM_VERIFY_ERR_BAD_HELPER,
 } vm_verify_result_t;
 
 /*
@@ -27,7 +29,7 @@ typedef enum {
  * This is the "lightweight verifier" required by Role 1. It enforces:
  *
  *   1. Program is non-empty and within VM_MAX_INSNS  (bounded size),
- *      and declares a known context (VM_CTX_ETH or VM_CTX_IPV4).
+ *      and declares a known context (VM_CTX_ETH, VM_CTX_IPV4, or VM_CTX_META).
  *   2. Every opcode is one this VM actually implements.
  *   3. Every register operand is in range [0, VM_NUM_REGS), and every
  *      field the opcode does not use (dst, src, offset, imm) is zero, so
@@ -51,6 +53,9 @@ typedef enum {
  * Returns VM_VERIFY_OK on success, otherwise the first error found.
  */
 vm_verify_result_t vm_verify(const vm_program_t *prog);
+
+/* Helpers referenced by a verified program, as VM_HELPER_BIT() values. */
+uint32_t vm_program_required_helpers(const vm_program_t *prog);
 
 const char *vm_verify_strerror(vm_verify_result_t r);
 

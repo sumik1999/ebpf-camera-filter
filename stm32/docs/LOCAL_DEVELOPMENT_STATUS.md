@@ -86,31 +86,54 @@ The standalone monitor policy parses and counts every frame but passes everythin
 
 Configuration is copied into fixed storage. Invalid counts, protocols, VLAN IDs, or zero service ports are refused without replacing the active policy. Tests confirm that a strict local policy can drop a frame while the untouched `xdp_hook_run()` still follows its installed VM/native program.
 
+## Dynamic metadata VM implemented (still detached from production hook)
+
+Implemented locally:
+
+- canonical 32-byte, big-endian metadata ABI (`vm_meta_abi.[ch]`);
+- ISA-v2 `VM_CTX_META` and bounded `VM_OP_CALL`;
+- 37-instruction metadata policy equivalent to the native strict reference;
+- native-versus-VM differential testing over 10,007 frames with zero mismatches;
+- three immutable metadata program banks (active, previous rollback, staging);
+- verification before a short callback-provided RTOS critical pointer swap;
+- authenticated FMV2 packages with HMAC-SHA256, device ID and monotonic generation;
+- built-in recovery policy and previous-generation rollback;
+- fixed-depth management-task queue, with update work outside RX/ISR context;
+- bounded global, service and 16-entry source rate helpers;
+- assembler support for `ctx meta` and `call`, plus `filter_pack.py` packaging.
+
+The existing `xdp_hook_run()` remains unchanged and continues to execute its legacy raw-frame slot.
+`filter_manager_run()` is the complete metadata pipeline used by tests, but is not called by the
+production hook until RTOS integration is explicitly approved.
+
 ## Verification
 
 Default host build and ASan/UBSan build:
 
 ```text
-300 passed, 0 failed
+329 passed, 0 failed
 ```
 
-The earlier override build with `VM_MAX_INSNS=128` passed all 279 tests available at that milestone, confirming VM storage configurability.
+Tests include SHA-256/HMAC known answers, bad authentication, replay rejection, omitted helper
+capabilities, inactive-bank loading, critical-section swaps, rollback, recovery, management queue,
+rate burst/refill/tick wrap, and native/VM differential parity.
 
 ## Not implemented yet
 
+- connection of `filter_manager_run()` to `xdp_hook_run()`;
+- concrete FreeRTOS `taskENTER_CRITICAL` / `taskEXIT_CRITICAL` callback wiring;
+- creation of the management task with `xTaskCreate` in board firmware;
+- persistent flash A/B configuration across reboot;
+- secure provisioning/storage of the HMAC key;
 - strict ARP field validation;
 - bounded IPv6 extension-header parsing;
-- token buckets;
-- source and prefix tables;
-- atomic policy replacement while RX is active;
-- `VM_CTX_META` / ISA v2 classification;
-- authenticated XCFG2 runtime policy updates;
+- prefix rate table (global/service/source helpers exist);
 - STM32 hardware measurements.
 
 ## Next coding slice
 
-1. Freeze a canonical metadata byte layout independent of C padding.
-2. Introduce `VM_CTX_META` as ISA v2 and teach the verifier/loader about it.
-3. Manually translate the standalone stateless policy into metadata bytecode.
-4. Differential-test native policy versus VM policy before installing it in the hook.
-5. Integrate only the verified metadata program through the existing dynamic slot/update mechanism.
+1. Review the metadata VM and update threat model.
+2. Wire FreeRTOS critical and idle callbacks in the actual board application.
+3. Create the management task and feed complete FMV2 packages from the authenticated control channel.
+4. Add a build-time experiment mode that selects legacy or metadata dispatch without changing the hook signature.
+5. Only then connect `filter_manager_run()` to the driver hook and measure its budget.

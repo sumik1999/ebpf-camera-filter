@@ -8,11 +8,13 @@ CFLAGS  := -std=gnu11 -Wall -Wextra -Werror -O2 \
            -I$(FW)/VM_Engine -I$(FW)/DDoS_Prototype -I$(FW)/Network_Hooks \
            -I$(FW)/Filter
 SRCS    := test_vm.c test_hooks.c test_native.c test_loader.c test_packet_parser.c \
-           test_ingress_filter.c \
+           test_ingress_filter.c test_dynamic_filter.c \
            $(FW)/VM_Engine/vm_verifier.c $(FW)/VM_Engine/vm_interpreter.c \
            $(FW)/VM_Engine/vm_slot.c $(FW)/VM_Engine/vm_loader.c \
-           $(FW)/Filter/packet_parser.c $(FW)/Filter/filter_policy.c \
-           $(FW)/Filter/ingress_filter.c \
+           $(FW)/Filter/packet_parser.c $(FW)/Filter/vm_meta_abi.c \
+           $(FW)/Filter/filter_policy.c $(FW)/Filter/ingress_filter.c \
+           $(FW)/Filter/rate_limit.c $(FW)/Filter/filter_crypto.c \
+           $(FW)/Filter/filter_manager.c $(FW)/Filter/filter_management_task.c \
            $(FW)/Network_Hooks/xdp_dma_hook.c $(FW)/Network_Hooks/lwip_ip4_hook.c \
            $(FW)/DDoS_Prototype/ddos_native.c $(FW)/DDoS_Prototype/ddos_prototype_init.c
 

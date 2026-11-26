@@ -32,21 +32,19 @@ int filter_management_submit(filter_management_task_t *task,
 {
     if (task==NULL||message==NULL||len==0u||len>FILTER_UPDATE_MAX_MSG) return 0;
     lock(task);
-    filter_mgmt_message_t *item=NULL;
-    for (uint32_t probe=0;probe<FILTER_MGMT_QUEUE_DEPTH;probe++) {
-        uint32_t index=(task->tail+probe)%FILTER_MGMT_QUEUE_DEPTH;
-        if (task->queue[index].state==0u) {
-            item=&task->queue[index]; item->state=1u;
-            task->tail=(uint8_t)((index+1u)%FILTER_MGMT_QUEUE_DEPTH);
-            break;
-        }
+    if (task->count==FILTER_MGMT_QUEUE_DEPTH) {
+        unlock(task);
+        return 0;
     }
+    filter_mgmt_message_t *item=&task->queue[task->tail];
+    item->state=1u;
+    task->tail=(uint8_t)((task->tail+1u)%FILTER_MGMT_QUEUE_DEPTH);
+    task->count++;
     unlock(task);
-    if (item==NULL) return 0;
 
     item->len=(uint16_t)len;
     for (uint32_t i=0;i<len;i++) item->data[i]=message[i];
-    lock(task); item->state=2u; task->count++; unlock(task);
+    lock(task); item->state=2u; unlock(task);
     return 1;
 }
 
@@ -54,21 +52,26 @@ int filter_management_process_one(filter_management_task_t *task)
 {
     if (task==NULL||task->manager==NULL) return 0;
     lock(task);
-    filter_mgmt_message_t *item=NULL;
-    for (uint32_t probe=0;probe<FILTER_MGMT_QUEUE_DEPTH;probe++) {
-        uint32_t index=(task->head+probe)%FILTER_MGMT_QUEUE_DEPTH;
-        if (task->queue[index].state==2u) {
-            item=&task->queue[index]; item->state=3u;
-            task->head=(uint8_t)((index+1u)%FILTER_MGMT_QUEUE_DEPTH);
-            task->count--; break;
-        }
+    if (task->count==0u || task->queue[task->head].state!=2u) {
+        unlock(task);
+        return 0;
     }
+    filter_mgmt_message_t *item=&task->queue[task->head];
+    item->state=3u;
     unlock(task);
-    if (item==NULL) return 0;
 
     vm_verify_result_t why=VM_VERIFY_OK;
     filter_update_result_t result=filter_manager_install(task->manager,item->data,item->len,&why);
-    lock(task); item->state=0u; unlock(task);
+    lock(task);
+    if (result==FILTER_UPDATE_ERR_STORAGE) {
+        item->state=2u; /* transient RX reference: retry the same FIFO head */
+        unlock(task);
+        return 0;
+    }
+    item->state=0u;
+    task->head=(uint8_t)((task->head+1u)%FILTER_MGMT_QUEUE_DEPTH);
+    task->count--;
+    unlock(task);
     if (task->result) task->result(task->callback_opaque,result,why);
     return 1;
 }

@@ -5,6 +5,7 @@
 #include "ingress_filter.h"
 #include "meta_filter_bytecode.h"
 #include "vm_meta_abi.h"
+#include "xdp_dma_hook.h"
 
 static filter_policy_t matching_native_policy(void)
 {
@@ -53,7 +54,7 @@ static uint32_t rnd32(void)
 
 void test_dynamic_filter(void)
 {
-    printf("[dynamic] metadata ABI, ISA v2, authenticated A/B updates and rate helpers\n");
+    printf("[dynamic] metadata ABI, ISA v2, authenticated banked updates and rate helpers\n");
 
     /* Canonical ABI is independent of packet_meta_t padding and host endian. */
     packet_meta_t meta={0}; uint8_t encoded[VM_META_SIZE];
@@ -85,6 +86,16 @@ void test_dynamic_filter(void)
     n=make_packet(frame,PACKET_ETHERTYPE_IPV4,PACKET_IPPROTO_UDP,1900);
     CHECK(filter_manager_run(&manager,frame,n,0,NULL)==VM_VERDICT_DROP,
           "recovery metadata program drops unlisted UDP service");
+
+    xdp_hook_init();
+    CHECK(xdp_hook_select_metadata(&manager,NULL,NULL) &&
+          xdp_hook_filter_kind()==HOOK_FILTER_META,
+          "driver hook selects exactly one metadata pipeline");
+    CHECK(xdp_hook_run(frame,(uint16_t)n)==VM_VERDICT_DROP,
+          "unchanged xdp_hook_run API dispatches through metadata policy");
+    xdp_hook_clear();
+    CHECK(xdp_hook_filter_kind()==HOOK_FILTER_NONE,
+          "clearing metadata mode restores the legacy empty path");
 
     /* Native reference and VM program must agree over structured and random frames. */
     ingress_filter_init(); filter_policy_t policy=matching_native_policy();
@@ -124,7 +135,7 @@ void test_dynamic_filter(void)
                                              pass_all,1,key,sizeof(key)-1u);
     vm_verify_result_t why;
     CHECK(filter_manager_install(&manager,package,package_len,&why)==FILTER_UPDATE_OK &&
-          manager.active_generation==1u && s_enter==s_exit && s_enter>0,
+          filter_manager_active(&manager)->generation==1u && s_enter==s_exit && s_enter>0,
           "authenticated generation installs with RTOS critical pointer swap");
     CHECK(filter_manager_run(&manager,frame,n,0,NULL)==VM_VERDICT_PASS,
           "new pass-all program is active");
@@ -135,15 +146,18 @@ void test_dynamic_filter(void)
     CHECK(filter_manager_install(&manager,package,package_len,&why)==FILTER_UPDATE_ERR_AUTH,
           "bad HMAC is rejected");
     package[28]^=1u;
-    CHECK(filter_manager_rollback(&manager) && manager.active_generation==0u,
+    CHECK(filter_manager_rollback(&manager) && filter_manager_active(&manager)->generation==0u &&
+          filter_manager_active(&manager)->hash==0u,
           "rollback restores the previous recovery program");
     n=make_packet(frame,PACKET_ETHERTYPE_IPV4,PACKET_IPPROTO_UDP,1900);
     CHECK(filter_manager_run(&manager,frame,n,0,NULL)==VM_VERDICT_DROP,
           "rollback restores strict verdict");
-    CHECK(filter_manager_rollback(&manager) && manager.active_generation==1u,
+    CHECK(filter_manager_rollback(&manager) && filter_manager_active(&manager)->generation==1u,
           "rollback can atomically return to the updated generation");
     filter_manager_recover(&manager);
-    CHECK(manager.active_generation==0u,"explicit recovery restores built-in policy");
+    CHECK(filter_manager_active(&manager)->generation==0u &&
+          filter_manager_active(&manager)->hash==0u,
+          "explicit recovery restores built-in policy descriptor");
 
     package_len=filter_update_build(package,sizeof(package),0x12345678u,2u,0u,
                                     meta_filter_insns,meta_filter_program.n_insns,
@@ -156,7 +170,7 @@ void test_dynamic_filter(void)
                                     meta_filter_insns,meta_filter_program.n_insns,
                                     key,sizeof(key)-1u);
     CHECK(filter_manager_install(&manager,package,package_len,&why)==FILTER_UPDATE_OK &&
-          manager.active_generation==2u,
+          filter_manager_active(&manager)->generation==2u,
           "authenticated metadata bytecode loads into an inactive bank and activates");
 
     /* Bounded rate helper: service capacity, refill, global and source paths. */
@@ -193,7 +207,18 @@ void test_dynamic_filter(void)
     filter_management_task_init(&task,&manager,NULL,result_cb,NULL);
     package_len=filter_update_build(package,sizeof(package),0x12345678u,3u,0u,
                                     pass_all,1,key,sizeof(key)-1u);
-    CHECK(filter_management_submit(&task,package,package_len) &&
-          filter_management_process_one(&task) && s_result_calls==1 && s_last_result==FILTER_UPDATE_OK,
-          "management task installs a queued authenticated update");
+    CHECK(filter_management_submit(&task,package,package_len),
+          "management queue accepts its first package");
+    package_len=filter_update_build(package,sizeof(package),0x12345678u,4u,0u,
+                                    pass_all,1,key,sizeof(key)-1u);
+    CHECK(filter_management_submit(&task,package,package_len),
+          "management queue accepts its second package");
+    package_len=filter_update_build(package,sizeof(package),0x12345678u,5u,0u,
+                                    pass_all,1,key,sizeof(key)-1u);
+    CHECK(!filter_management_submit(&task,package,package_len),
+          "management queue refuses overflow without overwriting work");
+    CHECK(filter_management_process_one(&task) && filter_management_process_one(&task) &&
+          s_result_calls==2 && s_last_result==FILTER_UPDATE_OK &&
+          filter_manager_active(&manager)->generation==4u,
+          "management queue processes authenticated updates in FIFO order");
 }

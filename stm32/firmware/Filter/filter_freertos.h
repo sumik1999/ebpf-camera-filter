@@ -14,6 +14,7 @@ extern "C" {
 void filter_freertos_enter_critical(void *opaque);
 void filter_freertos_exit_critical(void *opaque);
 void filter_freertos_idle(void *opaque);
+uint32_t filter_freertos_tick(void *opaque);
 
 BaseType_t filter_freertos_start_management(filter_management_task_t *management,
                                             const char *name,

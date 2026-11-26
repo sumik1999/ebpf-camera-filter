@@ -191,7 +191,7 @@ Status: **native reference implemented locally, not connected to the hook**. Ser
 
 ### M5 — Programmable classifier
 
-Status: **implemented locally, detached from the production hook.** ISA v2 adds `VM_CTX_META` and a bounded helper call. The canonical metadata policy is 37 instructions and matches the native reference over 10,007 differential inputs.
+Status: **implemented locally and selectable from the production hook API.** ISA v2 adds `VM_CTX_META` and a bounded helper call. The canonical metadata policy is 37 instructions and matches the native reference over 10,007 differential inputs. Board startup still defaults to legacy mode.
 
 - `VM_CTX_META`, verifier, interpreter, assembler and tests are updated together.
 - ISA-v1 Ethernet/IPv4 programs and XVM1 loading remain supported.

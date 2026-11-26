@@ -32,6 +32,7 @@
 
 #include <stdint.h>
 #include "hook_common.h"
+#include "filter_manager.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +49,14 @@ vm_slot_result_t xdp_hook_install_vm(const vm_program_t *prog, vm_verify_result_
 void xdp_hook_install_native(hook_native_fn fn);
 
 void xdp_hook_clear(void);
+
+/* Select the metadata pipeline as the one active driver filter. The manager
+ * must outlive the hook selection. tick_now may be NULL (tick 0). Perform mode
+ * selection during startup or under an external RX exclusion. Legacy VM or
+ * native installation automatically selects the legacy path again. */
+typedef uint32_t (*xdp_tick_fn)(void *opaque);
+int xdp_hook_select_metadata(filter_manager_t *manager,
+                             xdp_tick_fn tick_now, void *tick_opaque);
 
 /* Per frame: returns VM_VERDICT_PASS or VM_VERDICT_DROP. `frame` points at
  * the destination MAC; `len` is the bytes the DMA wrote to this buffer. */

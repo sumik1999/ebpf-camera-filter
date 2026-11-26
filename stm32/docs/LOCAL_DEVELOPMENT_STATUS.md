@@ -102,26 +102,26 @@ Implemented locally:
 - bounded global, service and 16-entry source rate helpers;
 - assembler support for `ctx meta` and `call`, plus `filter_pack.py` packaging.
 
-The existing `xdp_hook_run()` remains unchanged and continues to execute its legacy raw-frame slot.
-`filter_manager_run()` is the complete metadata pipeline used by tests, but is not called by the
-production hook until RTOS integration is explicitly approved.
+The `xdp_hook_run()` signature remains unchanged and defaults to its legacy raw-frame slot.
+`xdp_hook_select_metadata()` now selects `filter_manager_run()` as the one active path; installing a
+legacy VM/native filter switches back. Board startup does not select metadata mode yet.
 
 ## Verification
 
 Default host build and ASan/UBSan build:
 
 ```text
-329 passed, 0 failed
+339 passed, 0 failed
 ```
 
 Tests include SHA-256/HMAC known answers, bad authentication, replay rejection, omitted helper
-capabilities, inactive-bank loading, critical-section swaps, rollback, recovery, management queue,
-rate burst/refill/tick wrap, and native/VM differential parity.
+capabilities, inactive-bank loading, coherent descriptor swaps, rollback, recovery, FIFO queue,
+rate burst/refill/tick wrap, hook mode selection, native/VM differential parity, and a 500-update
+producer/management/RX concurrency stress test. Normal, ASan/UBSan, and ThreadSanitizer runs pass.
 
 ## Not implemented yet
 
-- connection of `filter_manager_run()` to `xdp_hook_run()`;
-- invocation of the provided `filter_freertos_*` adapter from the board application;
+- invocation of `xdp_hook_select_metadata()` and the provided `filter_freertos_*` adapter from the board application;
 - board-specific management transport feeding FMV2 packages into the created task;
 - persistent flash A/B configuration across reboot;
 - secure provisioning/storage of the HMAC key;
@@ -135,5 +135,5 @@ rate burst/refill/tick wrap, and native/VM differential parity.
 1. Review the metadata VM and update threat model.
 2. Wire FreeRTOS critical and idle callbacks in the actual board application.
 3. Create the management task and feed complete FMV2 packages from the authenticated control channel.
-4. Add a build-time experiment mode that selects legacy or metadata dispatch without changing the hook signature.
-5. Only then connect `filter_manager_run()` to the driver hook and measure its budget.
+4. Select metadata dispatch in a board experiment configuration without changing the hook signature.
+5. Measure the integrated path's budget and stack use.

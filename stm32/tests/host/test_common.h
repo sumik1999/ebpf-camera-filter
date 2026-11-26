@@ -67,5 +67,6 @@ void test_loader(void);      /* test_loader.c */
 void test_packet_parser(void); /* test_packet_parser.c */
 void test_ingress_filter(void); /* test_ingress_filter.c */
 void test_dynamic_filter(void); /* test_dynamic_filter.c */
+void test_filter_concurrency(void); /* test_filter_concurrency.c */
 
 #endif /* TEST_COMMON_H */

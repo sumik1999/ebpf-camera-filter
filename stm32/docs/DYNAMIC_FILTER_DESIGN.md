@@ -1,6 +1,6 @@
 # Dynamic metadata filter design
 
-Status: implemented on local branch `stm32-comprehensive-local`, but deliberately not connected to `xdp_hook_run()` yet.
+Status: implemented on local branch `stm32-comprehensive-local`. The metadata path is selectable through `xdp_hook_run()` but is not selected by board startup yet.
 
 ## Runtime path
 
@@ -13,7 +13,7 @@ raw Ethernet frame
   -> PASS or DROP
 ```
 
-The existing Ethernet hook still executes the legacy raw-frame slot. Board integration will select one path, never chain both filters.
+The Ethernet hook defaults to the legacy raw-frame slot. `xdp_hook_select_metadata()` selects the metadata manager as the sole path; installing a legacy VM/native filter selects legacy mode again. Filters are never chained.
 
 ## Canonical metadata ABI
 
@@ -68,13 +68,13 @@ The HMAC covers bytes 0–27 followed by bytecode. The key is not transmitted. C
 2. previous generation for rollback;
 3. staging.
 
-The update manager authenticates and verifies staging before entering a caller-provided RTOS critical section. The critical section contains only the aligned active-pointer store. RX reads the pointer once per packet.
+The update manager authenticates and verifies staging before entering a caller-provided RTOS critical section. Program, helper mask, generation and hash live in one immutable descriptor published with a release/acquire atomic pointer. Per-bank RX references prevent an old bank from being reused while an execution is in flight; temporary bank pressure is retried by the management queue.
 
 The built-in recovery program remains in flash. Rollback swaps active and previous; recovery selects the built-in program. The highest accepted generation is retained across RAM rollbacks to prevent replay.
 
 ## Management task
 
-`filter_management_task_t` provides a fixed two-message queue and FreeRTOS-compatible task entry. Submission copies a complete package in task context. HMAC, decoding and verification run in the management task, never in the ISR or packet RX path. `filter_freertos.[ch]` supplies `taskENTER_CRITICAL`, `taskEXIT_CRITICAL`, delay, and `xTaskCreate` adapters when `FILTER_USE_FREERTOS` is defined.
+`filter_management_task_t` provides a fixed two-message FIFO and FreeRTOS-compatible task entry. Head/tail/count and slot-state transitions use the supplied critical callbacks; a writing head blocks consumption rather than allowing generation reordering. Submission copies a complete package in task context. HMAC, decoding and verification run in the management task, never in the ISR or packet RX path. `filter_freertos.[ch]` supplies `taskENTER_CRITICAL`, `taskEXIT_CRITICAL`, tick, delay, and `xTaskCreate` adapters when `FILTER_USE_FREERTOS` is defined.
 
 ## Rate helpers
 
@@ -92,5 +92,5 @@ The VM can only call helper IDs allowed by both the authenticated package and ex
 - invoke the provided FreeRTOS adapter from board startup;
 - feed complete FMV2 messages from an authenticated control transport;
 - add persistent flash generations if updates must survive reboot;
-- select metadata dispatch in `xdp_hook_run()` behind an experiment/build mode;
+- call `xdp_hook_select_metadata()` during board startup;
 - measure stack, cycles and RX deadline on hardware.

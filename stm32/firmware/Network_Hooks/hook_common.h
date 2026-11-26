@@ -43,6 +43,7 @@ typedef enum {
     HOOK_FILTER_NONE = 0,
     HOOK_FILTER_VM,
     HOOK_FILTER_NATIVE,
+    HOOK_FILTER_META,
 } hook_filter_kind_t;
 
 typedef struct {

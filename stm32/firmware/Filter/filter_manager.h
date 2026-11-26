@@ -2,10 +2,11 @@
 #define FILTER_MANAGER_H
 
 #include <stdint.h>
+#include <stdatomic.h>
 #include "filter_crypto.h"
 #include "rate_limit.h"
 #include "vm_meta_abi.h"
-#include "vm_slot.h"
+#include "vm_verifier.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,22 +46,23 @@ typedef struct {
     uint32_t vm_faults;
 } filter_manager_stats_t;
 
+/* Immutable after publication. RX acquires this pointer once, ensuring the
+ * program and all authenticated execution attributes belong to one update. */
 typedef struct {
-    vm_slot_t slot;
+    vm_program_t program;
+    uint32_t helper_mask;
+    uint32_t generation;
+    uint32_t hash;
+    atomic_uint readers; /* RX references preventing premature bank reuse */
+} filter_active_t;
+
+typedef struct {
     vm_insn_t insns[FILTER_PROGRAM_BANKS][VM_MAX_INSNS];
-    vm_program_t program[FILTER_PROGRAM_BANKS];
-    uint32_t bank_generation[FILTER_PROGRAM_BANKS];
-    uint32_t bank_helper_mask[FILTER_PROGRAM_BANKS];
-    const vm_program_t *recovery;
-    const vm_program_t *previous;
-    uint32_t recovery_generation;
-    uint32_t previous_generation;
-    uint32_t active_generation;
-    uint32_t recovery_helper_mask;
-    uint32_t previous_helper_mask;
-    uint32_t active_helper_mask;
+    filter_active_t bank[FILTER_PROGRAM_BANKS];
+    filter_active_t recovery_state;
+    _Atomic(const filter_active_t *) active;
+    const filter_active_t *previous;
     uint32_t highest_generation;
-    uint32_t active_hash;
     uint32_t device_id;
     uint8_t auth_key[FILTER_AUTH_KEY_MAX];
     uint8_t auth_key_len;
@@ -70,6 +72,11 @@ typedef struct {
     rate_limiter_t limiter;
     filter_manager_stats_t stats;
 } filter_manager_t;
+
+/* Inspect the current descriptor. RX execution uses an internal referenced
+ * snapshot; callers must not retain this unreferenced status pointer across
+ * concurrent updates. */
+const filter_active_t *filter_manager_active(const filter_manager_t *manager);
 
 void filter_manager_init(filter_manager_t *manager, uint32_t device_id,
                          const uint8_t *key, uint32_t key_len,

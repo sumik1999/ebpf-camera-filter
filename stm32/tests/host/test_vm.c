@@ -821,6 +821,7 @@ int main(void)
     test_packet_parser();
     test_ingress_filter();
     test_dynamic_filter();
+    test_filter_concurrency();
 
     printf("\n%d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;

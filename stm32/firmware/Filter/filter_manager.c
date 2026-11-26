@@ -5,6 +5,9 @@
 #include "packet_parser.h"
 #include "vm_loader.h" /* CRC-32 */
 
+_Static_assert(ATOMIC_POINTER_LOCK_FREE == 2, "active policy pointer must be lock-free");
+_Static_assert(ATOMIC_INT_LOCK_FREE == 2, "RX bank references must be lock-free");
+
 static uint16_t get_le16(const uint8_t *p) { return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8)); }
 static uint32_t get_le32(const uint8_t *p)
 {
@@ -36,16 +39,19 @@ void filter_manager_init(filter_manager_t *m, uint32_t device_id,
                          void *critical_opaque, uint32_t tick_hz)
 {
     if (m == NULL) return;
-    vm_slot_init(&m->slot, VM_CTX_META);
     for (uint32_t i=0;i<FILTER_PROGRAM_BANKS;i++) {
-        m->program[i].insns=m->insns[i]; m->program[i].n_insns=0;
-        m->program[i].ctx=VM_CTX_META; m->bank_generation[i]=0; m->bank_helper_mask[i]=0;
+        m->bank[i].program.insns=m->insns[i]; m->bank[i].program.n_insns=0;
+        m->bank[i].program.ctx=VM_CTX_META; m->bank[i].helper_mask=0;
+        m->bank[i].generation=0; m->bank[i].hash=0;
+        atomic_init(&m->bank[i].readers,0u);
     }
-    m->recovery=recovery; m->previous=NULL; m->recovery_generation=0;
-    m->previous_generation=0; m->active_generation=0; m->highest_generation=0;
-    m->recovery_helper_mask=recovery?vm_program_required_helpers(recovery):0u;
-    m->previous_helper_mask=0u; m->active_helper_mask=m->recovery_helper_mask;
-    m->active_hash=0; m->device_id=device_id;
+    m->recovery_state.program=recovery?*recovery:(vm_program_t){NULL,0,VM_CTX_META};
+    m->recovery_state.helper_mask=recovery?vm_program_required_helpers(recovery):0u;
+    m->recovery_state.generation=0; m->recovery_state.hash=0;
+    atomic_init(&m->recovery_state.readers,0u);
+    m->previous=NULL; m->highest_generation=0;
+    atomic_init(&m->active,NULL);
+    m->device_id=device_id;
     m->auth_key_len=(uint8_t)(key_len>FILTER_AUTH_KEY_MAX?FILTER_AUTH_KEY_MAX:key_len);
     for (uint32_t i=0;i<FILTER_AUTH_KEY_MAX;i++) m->auth_key[i]=(i<m->auth_key_len&&key)?key[i]:0u;
     m->enter_critical=enter_critical; m->exit_critical=exit_critical; m->critical_opaque=critical_opaque;
@@ -55,14 +61,37 @@ void filter_manager_init(filter_manager_t *m, uint32_t device_id,
     for (uint32_t i=0;i<RATE_MAX_SERVICES;i++)
         (void)rate_limiter_set_service(&m->limiter,i,0xffffffffu,0xffffffffu);
     if (recovery != NULL && recovery->ctx == VM_CTX_META && vm_verify(recovery)==VM_VERIFY_OK)
-        vm_slot_publish_verified(&m->slot,recovery);
+        atomic_store_explicit(&m->active,&m->recovery_state,memory_order_release);
+}
+
+const filter_active_t *filter_manager_active(const filter_manager_t *m)
+{
+    return m?atomic_load_explicit(&m->active,memory_order_acquire):NULL;
+}
+
+static const filter_active_t *active_acquire(filter_manager_t *m)
+{
+    const filter_active_t *active;
+    do {
+        active=atomic_load_explicit(&m->active,memory_order_acquire);
+        if (active==NULL) return NULL;
+        atomic_fetch_add_explicit((atomic_uint *)&active->readers,1u,memory_order_acquire);
+        if (active==atomic_load_explicit(&m->active,memory_order_acquire)) return active;
+        atomic_fetch_sub_explicit((atomic_uint *)&active->readers,1u,memory_order_release);
+    } while (1);
+}
+
+static void active_release(const filter_active_t *active)
+{
+    atomic_fetch_sub_explicit((atomic_uint *)&active->readers,1u,memory_order_release);
 }
 
 static int free_bank(filter_manager_t *m)
 {
-    const vm_program_t *active=vm_slot_get(&m->slot);
+    const filter_active_t *active=filter_manager_active(m);
     for (uint32_t i=0;i<FILTER_PROGRAM_BANKS;i++) {
-        if (&m->program[i]!=active && &m->program[i]!=m->previous) return (int)i;
+        if (&m->bank[i]!=active && &m->bank[i]!=m->previous &&
+            atomic_load_explicit(&m->bank[i].readers,memory_order_acquire)==0u) return (int)i;
     }
     return -1;
 }
@@ -91,7 +120,9 @@ filter_update_result_t filter_manager_install(filter_manager_t *m,
     if (!filter_constant_time_equal(tag,msg+28,32u)) return reject(m,FILTER_UPDATE_ERR_AUTH);
 
     int bank=free_bank(m);
-    if (bank<0) return reject(m,FILTER_UPDATE_ERR_STORAGE);
+    /* A third bank can briefly be held by an RX execution that started before
+     * two rapid publications. This is backpressure, not a malformed update. */
+    if (bank<0) return FILTER_UPDATE_ERR_STORAGE;
     for (uint32_t i=0;i<count;i++) {
         const uint8_t *b=body+8u*i;
         m->insns[bank][i].opcode=b[0];
@@ -100,10 +131,12 @@ filter_update_result_t filter_manager_install(filter_manager_t *m,
         m->insns[bank][i].offset=(int16_t)get_le16(b+2);
         m->insns[bank][i].imm=(int32_t)get_le32(b+4);
     }
-    vm_program_t *program=&m->program[bank];
-    program->insns=m->insns[bank]; program->n_insns=count; program->ctx=VM_CTX_META;
-    vm_verify_result_t vr=vm_verify(program);
-    uint32_t required_helpers=vm_program_required_helpers(program);
+    filter_active_t *next=&m->bank[bank];
+    next->program.insns=m->insns[bank]; next->program.n_insns=count;
+    next->program.ctx=VM_CTX_META; next->helper_mask=helper_mask;
+    next->generation=generation; next->hash=get_le32(msg+24);
+    vm_verify_result_t vr=vm_verify(&next->program);
+    uint32_t required_helpers=vm_program_required_helpers(&next->program);
     if (vr==VM_VERIFY_OK &&
         ((helper_mask & ~((1u << VM_HELPER_COUNT) - 1u)) != 0u ||
          (required_helpers & ~helper_mask) != 0u)) {
@@ -112,17 +145,12 @@ filter_update_result_t filter_manager_install(filter_manager_t *m,
     if (why) *why=vr;
     if (vr!=VM_VERIFY_OK) return reject(m,FILTER_UPDATE_ERR_VERIFY);
 
-    const vm_program_t *old=vm_slot_get(&m->slot);
-    uint32_t old_generation=m->active_generation;
+    const filter_active_t *old=filter_manager_active(m);
     critical_enter(m);
-    vm_slot_publish_verified(&m->slot,program);
+    m->previous=old;
+    atomic_store_explicit(&m->active,next,memory_order_release);
+    m->highest_generation=generation;
     critical_exit(m);
-    m->previous=old; m->previous_generation=old_generation;
-    m->previous_helper_mask=m->active_helper_mask;
-    m->active_generation=generation; m->highest_generation=generation;
-    m->active_helper_mask=helper_mask;
-    m->bank_generation[bank]=generation; m->bank_helper_mask[bank]=helper_mask;
-    m->active_hash=get_le32(msg+24);
     m->stats.accepted_updates++;
     return FILTER_UPDATE_OK;
 }
@@ -130,28 +158,25 @@ filter_update_result_t filter_manager_install(filter_manager_t *m,
 int filter_manager_rollback(filter_manager_t *m)
 {
     if (m==NULL || m->previous==NULL) return 0;
-    const vm_program_t *current=vm_slot_get(&m->slot);
-    uint32_t current_generation=m->active_generation;
-    critical_enter(m); vm_slot_publish_verified(&m->slot,m->previous); critical_exit(m);
-    m->active_generation=m->previous_generation;
-    uint32_t current_helpers=m->active_helper_mask;
-    m->active_helper_mask=m->previous_helper_mask;
-    m->previous=current; m->previous_generation=current_generation;
-    m->previous_helper_mask=current_helpers;
+    critical_enter(m);
+    const filter_active_t *current=atomic_load_explicit(&m->active,memory_order_relaxed);
+    const filter_active_t *previous=m->previous;
+    m->previous=current;
+    atomic_store_explicit(&m->active,previous,memory_order_release);
+    critical_exit(m);
     m->stats.rollbacks++;
     return 1;
 }
 
 void filter_manager_recover(filter_manager_t *m)
 {
-    if (m==NULL || m->recovery==NULL) return;
-    const vm_program_t *current=vm_slot_get(&m->slot);
-    uint32_t current_generation=m->active_generation;
-    critical_enter(m); vm_slot_publish_verified(&m->slot,m->recovery); critical_exit(m);
-    m->previous=current; m->previous_generation=current_generation;
-    m->previous_helper_mask=m->active_helper_mask;
-    m->active_generation=m->recovery_generation; m->active_helper_mask=m->recovery_helper_mask;
-    m->active_hash=0;
+    if (m==NULL || m->recovery_state.program.insns==NULL ||
+        m->recovery_state.program.n_insns==0u) return;
+    critical_enter(m);
+    const filter_active_t *current=atomic_load_explicit(&m->active,memory_order_relaxed);
+    m->previous=current;
+    atomic_store_explicit(&m->active,&m->recovery_state,memory_order_release);
+    critical_exit(m);
     m->stats.rollbacks++;
 }
 
@@ -164,12 +189,13 @@ int filter_manager_run(filter_manager_t *m, const uint8_t *frame,
     packet_parse_result_t status=packet_parse_ethernet(frame,frame_len,&meta);
     uint8_t encoded[VM_META_SIZE];
     vm_meta_encode(&meta,status,encoded);
-    const vm_program_t *program=vm_slot_get(&m->slot);
-    if (program==NULL) return VM_VERDICT_DROP;
+    const filter_active_t *active=active_acquire(m);
+    if (active==NULL) return VM_VERDICT_DROP;
     rate_limiter_set_now(&m->limiter,now_tick);
-    vm_exec_env_t env={rate_limiter_vm_helper,&m->limiter,m->active_helper_mask};
+    vm_exec_env_t env={rate_limiter_vm_helper,&m->limiter,active->helper_mask};
     vm_run_stats_t local;
-    int verdict=vm_interpreter_run_ex(program,encoded,VM_META_SIZE,&env,run_stats?run_stats:&local);
+    int verdict=vm_interpreter_run_ex(&active->program,encoded,VM_META_SIZE,&env,run_stats?run_stats:&local);
+    active_release(active);
     const vm_run_stats_t *st=run_stats?run_stats:&local;
     if (st->aborted_oob||st->aborted_budget||st->aborted_helper) m->stats.vm_faults++;
     return verdict;
